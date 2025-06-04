@@ -20,8 +20,8 @@ export const fetchTestHierarchy = async () => {
   return response.json();
 };
 
-export const fetchTestData = async () => {
-  const response = await fetch("./vis/csv/largeTestData.csv");
+export const fetchTestData = async (filename) => {
+  const response = await fetch(filename);
   if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
   const csvText = await response.text();
 

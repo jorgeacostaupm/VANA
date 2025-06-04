@@ -1,0 +1,12 @@
+.coloredButton {
+  color: var(--primary-color);
+  border: none;
+  cursor: pointer;
+}
+
+.borderedButton {
+  color: var(--primary-color);
+  border: 2px solid;
+  cursor: pointer;
+  font-size: 25px;
+}

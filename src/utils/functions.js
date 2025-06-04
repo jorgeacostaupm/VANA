@@ -1,0 +1,459 @@
+import * as aq from "arquero";
+import { jStat } from "jstat";
+import * as ss from "simple-statistics";
+import { PCA } from "ml-pca";
+import { UMAP } from "umap-js";
+import { VariableTypes } from "./Constants";
+
+export function getCategoricDistributionData(data, catVar, groupVar) {
+  const groups = [...new Set(data.map((item) => item[groupVar]))];
+  const categories = [...new Set(data.map((item) => item[catVar]))];
+
+  const counts = {};
+  groups.forEach((g) => {
+    counts[g] = {};
+    categories.forEach((c) => {
+      counts[g][c] = 0;
+    });
+  });
+
+  data.forEach((item) => {
+    const g = item[groupVar];
+    const c = item[catVar];
+    if (g != null && c != null) {
+      counts[g][c] = (counts[g][c] || 0) + 1;
+    }
+  });
+
+  const chartData = groups.map((g) => {
+    const obj = { [groupVar]: g };
+    categories.forEach((c) => {
+      obj[c] = counts[g][c];
+    });
+    return obj;
+  });
+
+  return { chartData, categories, catVar, groupVar };
+}
+
+export function getUMAPData(data, params) {
+  const { variables, nNeighbors = 15, minDist = 0.1, nComponents = 2 } = params;
+
+  const matrix = [];
+  const metadata = [];
+
+  if (variables.length < 2 || data.length < 2) {
+    return { points: [], summary: "Not enough valid data for UMAP." };
+  }
+
+  for (let i = 0; i < data.length; i++) {
+    const row = variables.map((v) => parseFloat(data[i][v]));
+    if (row.every((val) => !isNaN(val))) {
+      matrix.push(row);
+      metadata.push({ original: data[i] });
+    }
+  }
+
+  if (matrix.length < 2) {
+    return {
+      points: [],
+      summary: "All rows contain missing or invalid values.",
+    };
+  }
+
+  const umap = new UMAP({
+    nNeighbors,
+    minDist,
+    nComponents,
+  });
+
+  const embedding = umap.fit(matrix);
+
+  const points = embedding.map((coords, i) => {
+    const result = { ...metadata[i].original };
+    coords.forEach((value, j) => {
+      result[`pc${j + 1}`] = value;
+    });
+    return result;
+  });
+
+  const summary = `UMAP completed: ${nComponents}D projection, ${nNeighbors} neighbors, minDist ${minDist}.`;
+
+  return { points, summary };
+}
+
+export function getPCAData(data, params) {
+  const { variables } = params;
+  const matrix = [];
+  const metadata = [];
+
+  if (variables.length < 2 || data.length < 2) {
+    return { points: [], summary: "Not enough valid data for PCA." };
+  }
+
+  for (let i = 0; i < data.length; i++) {
+    const row = variables.map((v) => parseFloat(data[i][v]));
+    if (row.every((val) => !isNaN(val))) {
+      matrix.push(row);
+      metadata.push({
+        original: data[i],
+      });
+    }
+  }
+
+  const pca = new PCA(matrix);
+  const projected = pca.predict(matrix, { nComponents: 2 }).to2DArray();
+  const loadings = pca.getLoadings().to2DArray();
+  const explained = pca.getExplainedVariance();
+
+  const topVars = [0, 1].map((pc) => {
+    const absLoadings = loadings.map((load, i) => ({
+      variable: variables[i],
+      loading: Math.abs(load[pc]),
+    }));
+    absLoadings.sort((a, b) => b.loading - a.loading);
+    return {
+      pc: pc + 1,
+      variance: explained[pc],
+      variables: absLoadings.slice(0, 3).map((d) => d.variable),
+    };
+  });
+
+  const summary = topVars
+    .map(
+      (d) =>
+        `PC${d.pc} explains ${(d.variance * 100).toFixed(
+          2
+        )}% of the variance and is most influenced by: ${d.variables.join(
+          ", "
+        )}.`
+    )
+    .join(" ");
+
+  const points = projected.map(([pc1, pc2], i) => ({
+    pc1,
+    pc2,
+    ...metadata[i].original,
+  }));
+
+  return { points, summary };
+}
+
+export function getCorrelationData(data, params) {
+  const { variables } = params;
+  const correlationMatrix = [];
+
+  for (let i = 0; i <= variables.length; i++) {
+    const var1 = variables[i];
+    const column1 = data
+      .map((d) => parseFloat(d[var1]))
+      .filter((v) => !isNaN(v));
+
+    for (let j = i; j <= variables.length; j++) {
+      const var2 = variables[j];
+      const column2 = data
+        .map((d) => parseFloat(d[var2]))
+        .filter((v) => !isNaN(v));
+
+      if (column1.length === column2.length && column1.length > 1) {
+        const correlation = ss.sampleCorrelation(column1, column2);
+
+        correlationMatrix.push({
+          x: var1,
+          y: var2,
+          value: correlation,
+        });
+
+        if (i !== j) {
+          correlationMatrix.push({
+            x: var2,
+            y: var1,
+            value: correlation,
+          });
+        }
+      }
+    }
+  }
+
+  return correlationMatrix;
+}
+
+export function getScatterData(data, params) {
+  const { groupVar, variables } = params;
+  console.log("start get");
+  return data.map((item) => {
+    const filtered = { group: item[groupVar] };
+    variables.forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(item, key)) {
+        filtered[key] = item[key];
+      }
+    });
+    return filtered;
+  });
+}
+
+export function getDistributionData(data, column, groupVar) {
+  const table = aq.from(data);
+  console.log(groupVar);
+  const selectedColumns = table.select(groupVar, column);
+  const grouped = selectedColumns.groupby(groupVar);
+
+  const resultArray = [];
+
+  grouped.objects({ grouped: "entries" }).forEach((group) => {
+    const type = group[0];
+    group[1].forEach((row) => {
+      const obj = {
+        type: type,
+        value: row[column],
+      };
+      resultArray.push(obj);
+    });
+  });
+
+  return resultArray;
+}
+
+export function getEvolutionData(data, variable, groupVar, timeVar) {
+  const table = aq.from(data);
+
+  const grouped_table = table
+    .groupby(groupVar, timeVar)
+    .select(groupVar, variable, timeVar);
+
+  const groups = grouped_table.objects({ grouped: "entries" });
+
+  const evolution_data = groups.map((g) => {
+    const group = g[0];
+    const time = g[1];
+    const obj = { population: group };
+    time.forEach((time) => {
+      const population = time[0];
+      const arr = time[1].map((d) => d[variable]);
+      const mean = arr.reduce((sum, value) => sum + +value, 0) / arr.length;
+
+      const std = Math.sqrt(
+        arr.reduce((sum, value) => sum + Math.pow(+value - mean, 2), 0) /
+          arr.length
+      );
+      obj[population] = { mean: mean, std: std };
+    });
+
+    return obj;
+  });
+
+  return evolution_data;
+}
+
+export function generateTree(meta, nodeID) {
+  const node = meta.find((item) => item.id === nodeID);
+  // console.log(nodeID, node);
+  if (node == null) return null;
+
+  const children = node.related.map((childID) => generateTree(meta, childID));
+  return {
+    id: node.id,
+    name: node.name,
+    children: children,
+    isShown: node.isShown,
+    type: node.type,
+    dtype: node.dtype,
+    formula: node?.info?.formula,
+  };
+}
+
+export function getVisibleNodes(tree) {
+  const filteredNodes = [];
+  const queue = [tree];
+
+  while (queue.length > 0) {
+    const node = queue.shift();
+
+    if (
+      node.isShown === false ||
+      !node.children ||
+      node.children.length === 0
+    ) {
+      if (node?.type === "aggregation" || node?.formula === "") {
+      } else filteredNodes.push(node.name);
+    } else if (node.children && node.children.length > 0) {
+      queue.push(...node.children);
+    }
+  }
+
+  return filteredNodes;
+}
+
+export function getEvolutionZscores(groups, timeVar) {
+  const z_scores = [];
+  const pops = [];
+
+  groups.forEach((group) => {
+    const populationName = group[0];
+    const population = group[1];
+
+    const timestamps = [...new Set(population.map((d) => d[timeVar]).sort())];
+    const len = timestamps.length;
+    const min = timestamps[0];
+    const max = timestamps[len - 1];
+
+    const extremeVisits = population.filter(
+      (d) => d[timeVar] == max || d[timeVar] == min
+    );
+    const cleanedPopulation = aq.from(extremeVisits);
+
+    // Calcular Z-scores
+    const group_z_scores = computeZscores(cleanedPopulation, timeVar).map(
+      (d) => ({
+        population: populationName,
+        variable: d.variable,
+        value: d.value,
+        p_value: d.p_value,
+      })
+    );
+
+    z_scores.push(...group_z_scores);
+    pops.push(populationName);
+  });
+
+  return { data: z_scores, populations: pops };
+}
+
+export function computeZscores(table, grouping) {
+  const grouped_table = table.groupby(grouping);
+  const numeric_columns = getNumericCols(table);
+
+  const z_scores = [];
+  numeric_columns.forEach((variable) => {
+    const stats = getStats(grouped_table, variable, grouping);
+    const means = stats.array("mean");
+    const std = stats.array("std").map((d) => (d ? d : 0));
+    const count = stats.array("count");
+
+    const z_score =
+      (means[0] - means[1]) /
+      Math.sqrt(std[0] ** 2 / count[0] + std[1] ** 2 / count[1]);
+
+    const p_value = 2 * (1 - jStat.normal.cdf(Math.abs(z_score), 0, 1));
+
+    const obj = {
+      variable: variable,
+      value: z_score,
+      p_value: p_value,
+      my_value: "lalalala",
+      statistics: stats.objects(),
+    };
+
+    if (!Number.isNaN(z_score) && Number.isFinite(z_score)) z_scores.push(obj);
+  });
+
+  return z_scores;
+}
+
+export function getNumericCols(table) {
+  return table
+    .columnNames()
+    .filter((col) => table.array(col).every((v) => !isNaN(+v)));
+}
+
+export function getCategoricalKeys(data) {
+  if (!Array.isArray(data) || data.length === 0) {
+    return [];
+  }
+
+  const allKeys = new Set();
+  data.forEach((item) => {
+    Object.keys(item).forEach((k) => allKeys.add(k));
+  });
+
+  const categoricalKeys = [];
+
+  allKeys.forEach((key) => {
+    const uniqueVals = new Set();
+    let allNumeric = true;
+
+    for (const obj of data) {
+      const val = obj[key];
+      if (val === null || val === undefined || Number.isNaN(val)) {
+        allNumeric = false;
+        break;
+      }
+      uniqueVals.add(val);
+      if (uniqueVals.size >= 10) {
+        allNumeric = false;
+        break;
+      }
+    }
+
+    if (allNumeric) {
+      categoricalKeys.push(key);
+    }
+  });
+
+  return categoricalKeys;
+}
+
+export function getStats(grouped_table, variable, grouping_var) {
+  const stats = grouped_table
+    .rollup({
+      mean: aq.op.average(variable),
+      std: aq.op.stdev(variable),
+      variance: aq.op.variance(variable),
+      count: aq.op.count(),
+    })
+    .rename({
+      [grouping_var]: "group",
+    });
+
+  return stats;
+}
+
+function isNumeric(value) {
+  return value !== null && value !== undefined && value !== "" && !isNaN(value);
+}
+
+export function identifyTypes(array, cardinalityThreshold = 0.3) {
+  if (!Array.isArray(array) || array.length === 0) return {};
+  const fields = Object.keys(array[0]);
+  const result = {};
+
+  for (const field of fields) {
+    const validValues = array
+      .map((item) => item[field])
+      .filter((v) => v !== null && v !== undefined && v !== "");
+
+    const distinctCount = new Set(validValues).size;
+    const ratio =
+      validValues.length > 0 ? distinctCount / validValues.length : 0;
+    const allNumeric = validValues.length > 0 && validValues.every(isNumeric);
+
+    if (ratio <= cardinalityThreshold) {
+      result[field] = VariableTypes.CATEGORICAL;
+      continue;
+    }
+
+    if (allNumeric) {
+      result[field] = VariableTypes.NUMERICAL;
+      continue;
+    }
+
+    result[field] = VariableTypes.UNKNOWN;
+  }
+
+  console.log(result);
+  return result;
+}
+
+export function generateFileName(baseName = "data") {
+  const currentDate = new Date();
+  const year = currentDate.getFullYear();
+  const month = String(currentDate.getMonth() + 1).padStart(2, "0"); // Month (0–11, so add 1)
+  const day = String(currentDate.getDate()).padStart(2, "0"); // Day
+  const hours = String(currentDate.getHours()).padStart(2, "0"); // Hours
+  const minutes = String(currentDate.getMinutes()).padStart(2, "0"); // Minutes
+  const seconds = String(currentDate.getSeconds()).padStart(2, "0"); // Seconds
+
+  const fileName = `${baseName}_${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+
+  return fileName;
+}

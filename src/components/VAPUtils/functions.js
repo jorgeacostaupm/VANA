@@ -7,10 +7,7 @@ import store from "@/components/VAPUtils/features/store";
 
 import { setQuarantineData } from "@/components/VAPUtils/features/cantab/cantabSlice";
 import { setDataframe as setData } from "@/components/VAPUtils/features/data/dataSlice";
-import {
-  DEFAULT_ORDER_VARIABLE,
-  HIDDEN_VARIABLES,
-} from "@/components/VAPCANTAB/Utils/constants/Constants";
+import { ORDER_VARIABLE, HIDDEN_VARIABLES } from "@/utils/Constants";
 
 import { pubsub } from "./pubsub";
 
@@ -38,7 +35,7 @@ export function renderContextTooltip(tooltip, d, idVar) {
 
   tooltip.select("#but1").on("click", function () {
     console.log("click");
-    quarantineSubject(d[DEFAULT_ORDER_VARIABLE]);
+    quarantineSubject(d[ORDER_VARIABLE]);
   });
 
   d3.select("body").on("click", function () {
@@ -49,11 +46,8 @@ export function renderContextTooltip(tooltip, d, idVar) {
 export function quarantineSubject(id) {
   const data = store.getState().dataframe.dataframe;
   const quarantineData = store.getState().cantab.quarantineData;
-  console.log("QUARATINE SUBJECT", id);
-  const filteredData = data.filter(
-    (item) => item[DEFAULT_ORDER_VARIABLE] === id
-  );
-  const newData = data.filter((item) => item[DEFAULT_ORDER_VARIABLE] !== id);
+  const filteredData = data.filter((item) => item[ORDER_VARIABLE] === id);
+  const newData = data.filter((item) => item[ORDER_VARIABLE] !== id);
   const newQuarantineData = [...quarantineData, ...filteredData];
 
   store.dispatch(setData(newData));
@@ -72,8 +66,6 @@ export function quarantineSubjectVisit(id, visit, timeVar) {
     (item) => item.id !== id || item[timeVar] !== visit
   );
   const newQuarantineData = [...quarantineData, ...filteredData];
-
-  console.log("QUARANTINE SUBJETCT VISIT!!!", filteredData, newData);
 
   store.dispatch(setData(newData));
   store.dispatch(setQuarantineData(newQuarantineData));
@@ -108,7 +100,6 @@ function cleanData(data) {
 export function moveTooltip(e, tooltip, chart) {
   const [x, y] = d3.pointer(e, chart);
   const tooltipHeight = tooltip.node().getBoundingClientRect().height;
-
   tooltip
     .style("opacity", 1)
     .style("left", `${x}px`)
@@ -223,14 +214,14 @@ export function computeEvolutionRankingDataOnWorker(
 /* export function computeEvolutionRankingDataOnWorker(selection) {
   const data = cleanData(selection);
   const table = aq.from(data);
-  const group_var = store.getState().cantab.group_var;
-  const time_var = store.getState().cantab.time_var;
+  const groupVar = store.getState().cantab.groupVar;
+  const timeVar = store.getState().cantab.timeVar;
   const is_numeric = store.getState().evolution.is_numeric;
   const p_value = store.getState().evolution.p_value;
-  const grouped_table = table.groupby(group_var);
+  const grouped_table = table.groupby(groupVar);
 
   const groups = grouped_table.objects({ grouped: 'entries' });
-  const tmp = grouped_table.groupby(group_var, time_var).objects({ grouped: 'entries' });
+  const tmp = grouped_table.groupby(groupVar, timeVar).objects({ grouped: 'entries' });
 
   const some_have_more_than_two = tmp.some((item) => item[1].length > 2);
   const all_have_two = tmp.every((item) => item[1].length === 2);
@@ -254,16 +245,16 @@ export function computeEvolutionRankingDataOnWorker(
     worker_data = [];
   }
 
-  store.dispatch(startEvolutionWorker([worker_data, time_var, measure, p_value]));
+  store.dispatch(startEvolutionWorker([worker_data, timeVar, measure, p_value]));
 } */
 
 export function computeCategoricEvolutionData(data, variable, group) {
-  const group_var = store.getState().cantab.group_var;
-  const table = aq.from(data.filter((d) => d[group_var] == group));
-  const time_var = store.getState().cantab.time_var;
+  const groupVar = store.getState().cantab.groupVar;
+  const table = aq.from(data.filter((d) => d[groupVar] == group));
+  const timeVar = store.getState().cantab.timeVar;
   const grouped_table = table
-    .groupby(variable, time_var)
-    .select(variable, time_var);
+    .groupby(variable, timeVar)
+    .select(variable, timeVar);
   const groups = grouped_table.objects({ grouped: "entries" });
 
   const evolution_data = groups.map((g) => {
@@ -286,11 +277,11 @@ export function computeCategoricEvolutionData(data, variable, group) {
 
 export function computeEvolutionData(data, variable) {
   const table = aq.from(data);
-  const group_var = store.getState().cantab.group_var;
-  const time_var = store.getState().cantab.time_var;
+  const groupVar = store.getState().cantab.groupVar;
+  const timeVar = store.getState().cantab.timeVar;
   const grouped_table = table
-    .groupby(group_var, time_var)
-    .select(group_var, variable, time_var);
+    .groupby(groupVar, timeVar)
+    .select(groupVar, variable, timeVar);
   const groups = grouped_table.objects({ grouped: "entries" });
 
   const evolution_data = groups.map((g) => {
@@ -317,12 +308,12 @@ export function computeEvolutionData(data, variable) {
 
 export function computeEvolutionSubjectData(data, variable) {
   const table = aq.from(data);
-  const group_var = store.getState().cantab.group_var;
-  const time_var = store.getState().cantab.time_var;
+  const groupVar = store.getState().cantab.groupVar;
+  const timeVar = store.getState().cantab.timeVar;
 
   const grouped_table = table
     .groupby("id")
-    .select("id", group_var, variable, time_var, DEFAULT_ORDER_VARIABLE);
+    .select("id", groupVar, variable, timeVar, ORDER_VARIABLE);
   const groups = grouped_table.objects({ grouped: "entries" });
   console.log("GROUPS", groups);
 
@@ -353,19 +344,19 @@ export function computeEvolutionSubjectData(data, variable) {
 
 import { startWorker as startCompareWorker } from "@/components/VAPUtils/features/compare/startWorker";
 export function computeCompareRankingDataOnWorker(selection) {
-  const group_var = store.getState().cantab.group_var;
+  const groupVar = store.getState().cantab.groupVar;
   const is_numeric = store.getState().compare.is_numeric;
   const p_value = store.getState().compare.p_value;
   const data = cleanData(selection);
   const table = aq.from(data);
-  const grouped_table = table.groupby(group_var);
+  const grouped_table = table.groupby(groupVar);
   const n_groups = grouped_table.objects({ grouped: "entries" }).length;
   const measure = is_numeric
     ? n_groups > 2
       ? "F-Value"
       : "Z-Score"
     : "Chi-Square";
-  store.dispatch(startCompareWorker([data, group_var, measure, p_value]));
+  store.dispatch(startCompareWorker([data, groupVar, measure, p_value]));
 }
 
 export function computeCompareRankingDataOnWorkerNEW(
@@ -388,17 +379,17 @@ export function computeCompareRankingDataOnWorkerNEW(
 
 export function computeCompareCategoriesData(data, column) {
   const table = aq.from(data);
-  const group_var = store.getState().cantab.group_var;
+  const groupVar = store.getState().cantab.groupVar;
 
-  const result = table.groupby(column, group_var).count().objects();
+  const result = table.groupby(column, groupVar).count().objects();
   return result;
 }
 
 export function computeCompareDensitiesData(data, column) {
   const table = aq.from(data);
-  const group_var = store.getState().cantab.group_var;
-  const selectedColumns = table.select(group_var, column);
-  const grouped = selectedColumns.groupby(group_var);
+  const groupVar = store.getState().cantab.groupVar;
+  const selectedColumns = table.select(groupVar, column);
+  const grouped = selectedColumns.groupby(groupVar);
 
   const resultArray = [];
 
@@ -646,7 +637,7 @@ function getMeans(grouped_table, variable, grouping_var) {
   return means;
 }
 
-function getNumericCols(table) {
+export function getNumericCols(table) {
   const numeric_cols = table.columnNames().filter((col) => {
     if (col != "")
       return table

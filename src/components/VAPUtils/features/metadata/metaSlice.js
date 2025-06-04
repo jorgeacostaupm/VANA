@@ -11,6 +11,8 @@ import { from as loadObjects, loadCSV } from "arquero";
 import * as XLSX from "xlsx";
 import { pubsub } from "../../../VAPUtils/pubsub";
 import { setDescriptions } from "../cantab/cantabSlice";
+import { generateTree, getVisibleNodes } from "../../../../utils/functions";
+import { generateAggregationBatch } from "../data/modifyReducers";
 const { publish } = pubsub;
 
 /*
@@ -44,6 +46,7 @@ metadatos:
 
 const initialState = {
   init: false,
+  filename: null,
   attributes: [
     {
       id: 0,
@@ -148,6 +151,25 @@ export const undoOperation = createAsyncThunk(
   }
 );
 
+export const updateHierarchy = createAsyncThunk(
+  "metadata/updateHierarchy",
+  async ({ hierarchy, filename }, { dispatch, rejectWithValue }) => {
+    try {
+      const tree = generateTree(hierarchy, 0);
+      const navioColumns = getVisibleNodes(tree);
+      dispatch(generateAggregationBatch({ cols: hierarchy }));
+      return {
+        filename,
+        hierarchy,
+        navioColumns,
+      };
+    } catch (error) {
+      console.error("updateHierarchy failed:", error);
+      return rejectWithValue(error.message || "Unknown error");
+    }
+  }
+);
+
 export const metaSlice = createSlice({
   name: "metadata",
   initialState: initialState,
@@ -244,25 +266,31 @@ export const metaSlice = createSlice({
     }),
 
     setFullMeta: create.reducer((state, action) => {
-      /* 
-      const attributes =
-        state.attributes.filter((n) => n.type === 'attribute').map((n) => n.name)?.length || 0;
-      const contentAttributes =
-        action.payload.filter((n) => n.type === 'attribute').map((n) => n.name)?.length || 0;
-
-      
-      if (contentAttributes < attributes) {
-        publish('addAlertNotification', {
-          type: 'warn',
-          msg: `Se han borrado ${contentAttributes - attributes} atributos base al importar.`
-        });
-      } */
-      state.attributes = action.payload;
+      const { hierarchy, filename } = action.payload;
+      state.attributes = hierarchy;
+      state.filename = filename;
       state.loadingStatus = "done";
-      state.version = state.version === 0 ? 1 : 0; // if state is keep equal, the view may not be updated.
+      state.version = state.version === 0 ? 1 : 0;
     }),
   }),
   extraReducers: (builder) => {
+    builder.addCase(updateHierarchy.fulfilled, (state, action) => {
+      const { hierarchy, filename } = action.payload;
+      state.attributes = hierarchy;
+      state.filename = filename;
+      state.loadingStatus = "done";
+      state.version = state.version === 0 ? 1 : 0;
+    });
+    builder.addCase(updateHierarchy.rejected, (state, action) => {
+      const configuration = {
+        message: "Error in updateHierarchy",
+        description: action.payload,
+        type: "error",
+        pauseOnHover: true,
+      };
+      publish("notification", configuration);
+    });
+
     builder.addCase(buildMetaFromVariableTypes.fulfilled, (state, action) => {
       state.attributes = action.payload;
       state.version = state.version === 0 ? 1 : 0;
@@ -490,7 +518,6 @@ export const metaSlice = createSlice({
 
 export const {
   setInit,
-  setNavioColumns,
   setFullMeta,
   changeRelationship,
   toggleAttribute,

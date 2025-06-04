@@ -1,14 +1,18 @@
-import * as ss from 'simple-statistics';
-import store from '@/components/VAPUtils/features/store';
+import * as ss from "simple-statistics";
+import store from "@/components/VAPUtils/features/store";
 
-import {
-  DEFAULT_ORDER_VARIABLE,
-  HIDDEN_VARIABLES
-} from '@/components/VAPCANTAB/Utils/constants/Constants';
+import { HIDDEN_VARIABLES } from "@/utils/Constants";
 
-import { startWorker as startCorrelationWorker } from '@/components/VAPUtils/features/correlation/correlationSlice';
-export function computeCorrelationMatrixDataOnWorker(data, columns, selectedPopulations, groupVar) {
-  store.dispatch(startCorrelationWorker([data, columns, selectedPopulations, groupVar]));
+import { startWorker as startCorrelationWorker } from "@/components/VAPUtils/features/correlation/correlationSlice";
+export function computeCorrelationMatrixDataOnWorker(
+  data,
+  columns,
+  selectedPopulations,
+  groupVar
+) {
+  store.dispatch(
+    startCorrelationWorker([data, columns, selectedPopulations, groupVar])
+  );
 }
 
 export function computeCorrelationMatrixData(data, columns, groups, groupVar) {
@@ -48,7 +52,7 @@ function computeCorrelationMatrix(dataset) {
       correlationMatrix.push({
         x: keys[i],
         y: keys[j],
-        value: correlation
+        value: correlation,
       });
 
       if (i !== j) {
@@ -56,7 +60,7 @@ function computeCorrelationMatrix(dataset) {
         correlationMatrix.push({
           x: keys[j],
           y: keys[i],
-          value: correlation
+          value: correlation,
         });
       }
     }

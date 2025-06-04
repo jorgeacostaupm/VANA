@@ -1,12 +1,13 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { startWorker } from './startWorker';
-import { pubsub } from '@/components/VAPUtils/pubsub';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { startWorker } from "./startWorker";
+import { pubsub } from "@/components/VAPUtils/pubsub";
 const { publish } = pubsub;
 
 const initialState = {
   init: false,
 
   selectedVar: null,
+  selectedTest: null,
   selectedPopulation: null,
   nBars: 15,
   desc: true,
@@ -14,7 +15,7 @@ const initialState = {
   isNumeric: true,
   pValue: 0.05,
 
-  showStds: true,
+  showStds: false,
   showMeans: true,
   meanPointSize: 20,
   subjectPointSize: 5,
@@ -24,11 +25,11 @@ const initialState = {
   hideGroups: [],
 
   result: null,
-  loading: false
+  loading: false,
 };
 
 const evolutionSlice = createSlice({
-  name: 'evolution',
+  name: "evolution",
   initialState,
   reducers: {
     setInit: (state, action) => {
@@ -41,6 +42,9 @@ const evolutionSlice = createSlice({
     // BARPLOT
     setSelectedVar: (state, action) => {
       state.selectedVar = action.payload;
+    },
+    setSelectedTest: (state, action) => {
+      state.selectedTest = action.payload;
     },
     setSelectedPopulation: (state, action) => {
       state.selectedPopulation = action.payload;
@@ -88,7 +92,7 @@ const evolutionSlice = createSlice({
     },
     setHideGroups: (state, action) => {
       state.hideGroups = action.payload;
-    }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -103,14 +107,14 @@ const evolutionSlice = createSlice({
       .addCase(startWorker.rejected, (state, action) => {
         state.loading = false;
         const configuration = {
-          message: 'Error computing data on worker',
+          message: "Error computing data on worker",
           description: action.payload,
-          type: 'error',
-          pauseOnHover: true
+          type: "error",
+          pauseOnHover: true,
         };
-        publish('notification', configuration);
+        publish("notification", configuration);
       });
-  }
+  },
 });
 
 export default evolutionSlice.reducer;
@@ -119,6 +123,7 @@ export const {
   setIsNumeric,
 
   setSelectedVar,
+  setSelectedTest,
   setSelectedPopulation,
   setNBars,
   setPValue,
@@ -134,5 +139,5 @@ export const {
   setMeanStrokeWidth,
   setSubjectStrokeWidth,
   setBlurGroups,
-  setHideGroups
+  setHideGroups,
 } = evolutionSlice.actions;

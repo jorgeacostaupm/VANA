@@ -1,105 +1,132 @@
-import React, { useEffect, useState, useRef } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import GridLayout, { WidthProvider } from "react-grid-layout";
+import { useSelector, useDispatch } from "react-redux";
+import { Layout, notification } from "antd";
 
-import { AppMenu } from "@/components/VAPUtils/Menu";
-import VarTable from "./VarTable";
-import OptionsMatrix from "./OptionsMatrix";
-import OptionsScatter from "./OptionsScatter";
+import { Apps, Graphs } from "@/utils/Constants";
 import NoData from "@/components/VAPConnectivity/components/NoData";
 import { pubsub } from "@/components/VAPUtils/pubsub";
+
+import {
+  setSelectedVar,
+  setSelectedTest,
+} from "@/components/VAPUtils/features/compare/compareSlice";
+
 import { setInit } from "@/components/VAPUtils/features/correlation/correlationSlice";
+import { useNotificationSubscription } from "@/components/VAPCANTAB/Utils/hooks/cantabAppHooks";
 import useRootStyles from "@/components/VAPUtils/useRootStyles";
-import ScatterPlotMatrix from "./ScatterPlotMatrix";
+import Panel from "./Panel";
+import Scatterplot from "./Scatterplot";
+import Correlation from "./Correlation";
+import PCA from "./PCA";
+import UMAP from "./UMAP";
 const { publish } = pubsub;
+const ResponsiveGridLayout = WidthProvider(GridLayout);
 
-const menu = [
-  {
-    key: 0,
-    label: "Matrix",
-    children: <OptionsMatrix />,
-  },
+function App() {
+  const dispatch = useDispatch();
+  const selectedVar = useSelector((s) => s.compare.selectedVar);
+  const assumptions = useSelector((s) => s.compare.assumptions);
 
-  {
-    key: 1,
-    label: "ScatterPlots",
-    children: <OptionsScatter />,
-  },
-];
+  const [views, setViews] = useState([]);
+  const [layout, setLayout] = useState([]);
 
-export const App = ({ selection, groupVar, navioColumns }) => {
-  const [isDataOk, setIsDataOk] = useState(false);
+  const createView = useCallback((type) => {
+    const id = `${type}-${Date.now()}`;
+    const defaultW = 5;
+    const defaultH = 8;
 
-  useRootStyles(
-    { padding: "0px 0px", maxWidth: "100vw" },
-    setInit,
-    "Correlation App"
-  );
+    setViews((prev) => [{ id, type }, ...prev]);
 
-  useEffect(() => {
-    let configuration;
-    if (!navioColumns.includes(groupVar)) {
-      configuration = {
-        message: "Population variable not found.",
-        description:
-          "Population variable not among the available ones in the dataset.",
-        type: "error",
-      };
-    } else if (selection.length < 2) {
-      configuration = {
-        message: "Not enough data points.",
-        type: "error",
-      };
-    }
+    setLayout((prev) => [
+      {
+        i: id,
+        x: 0,
+        y: 0,
+        w: defaultW,
+        h: defaultH,
+      },
+      ...prev.map((l) => ({ ...l, y: l.y + defaultH })),
+    ]);
+  }, []);
 
-    if (configuration) {
-      publish("notification", configuration);
-      setIsDataOk(false);
-    } else setIsDataOk(true);
-  }, [navioColumns, groupVar, selection]);
+  const removeView = useCallback((id) => {
+    setViews((prev) => prev.filter((v) => v.id !== id));
+    setLayout((prev) => prev.filter((l) => l.i !== id));
+  }, []);
 
-  console.log("RENDERING CORRELATION APP");
-  return (
-    <>
-      {" "}
-      <div className="appLayout correlationAppLayout">
-        <AppMenu items={menu} />
-
-        {isDataOk && <VarTable />}
-        <div
-          style={{
-            height: "100%",
-            width: "80%",
-            position: "relative",
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            overflow: "visible",
-          }}
-        >
-          {isDataOk && <ScatterPlotMatrix />}
-        </div>
-        {!isDataOk && <NoData></NoData>}
-      </div>
-    </>
-  );
-};
-
-function CorrelationApp() {
-  const groupVar = useSelector((state) => state.cantab.group_var);
-  const selection = useSelector((state) => state.cantab.selection);
-  const navioColumns = useSelector((state) => state.dataframe.navioColumns);
-
-  if (groupVar == null || selection == null || navioColumns == null) {
-    return null;
+  function generateGraph(selectedVar) {
+    createView(selectedVar);
   }
 
   return (
-    <App
-      selection={selection}
-      groupVar={groupVar}
-      navioColumns={navioColumns}
-    ></App>
+    <Layout
+      style={{
+        height: "100vh",
+        width: "100vw",
+        background: "#f0f2f5",
+        overflow: "auto",
+      }}
+    >
+      <Panel
+        selectedVar={selectedVar}
+        onVarChange={(v) => dispatch(setSelectedVar(v))}
+        onTestChange={(v) => dispatch(setSelectedTest(v))}
+        generateGraph={generateGraph}
+        assumptions={assumptions}
+      />
+
+      <ResponsiveGridLayout
+        className="layout"
+        layout={layout}
+        onLayoutChange={setLayout}
+        cols={12}
+        rowHeight={100}
+        draggableHandle=".drag-handle"
+        margin={[5, 5]}
+        containerPadding={[20, 20]}
+      >
+        {views.map((v) => (
+          <div key={v.id}>
+            {v.type === Graphs.SCATTER && (
+              <Scatterplot remove={() => removeView(v.id)} />
+            )}
+            {v.type === Graphs.CORRELATION && (
+              <Correlation remove={() => removeView(v.id)} />
+            )}
+            {v.type === Graphs.PCA && <PCA remove={() => removeView(v.id)} />}
+            {v.type === Graphs.UMAP && <UMAP remove={() => removeView(v.id)} />}
+          </div>
+        ))}
+      </ResponsiveGridLayout>
+    </Layout>
   );
 }
 
-export default CorrelationApp;
+export default function CorrelationApp() {
+  const [isOk, setIsOk] = useState(false);
+  const [apiNotif, holder] = notification.useNotification();
+
+  const groupVar = useSelector((s) => s.cantab.groupVar);
+  const selection = useSelector((state) => state.cantab.selection);
+  const navioCols = useSelector((s) => s.dataframe.navioColumns);
+
+  useRootStyles({ padding: 0, maxWidth: "100vw" }, setInit, Apps.CORRELATION);
+  useNotificationSubscription(apiNotif);
+
+  useEffect(() => {
+    let config = null;
+    if (!groupVar || !selection || !navioCols) {
+      config = {};
+    }
+    setIsOk(!config);
+    if (config?.message) publish("notification", config);
+  }, [groupVar, selection, navioCols]);
+
+  return (
+    <>
+      {holder}
+      {isOk ? <App /> : <NoData />}
+    </>
+  );
+}

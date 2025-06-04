@@ -26,7 +26,7 @@ export const ButtonLink = ({ to, children, setInit, icon }) => {
       window.open(
         window.location.href + "#/" + to,
         "_blank",
-        "noopener,noreferrer,toolbar=0,location=0,menubar=0"
+        "noopener,noreferrer"
       );
     }
   };
@@ -34,7 +34,7 @@ export const ButtonLink = ({ to, children, setInit, icon }) => {
   return (
     <>
       {contextHolder}
-      <Button type="primary" onClick={handleOpenTab}>
+      <Button size="large" type="primary" onClick={handleOpenTab}>
         {icon && icon}
         {children}
       </Button>

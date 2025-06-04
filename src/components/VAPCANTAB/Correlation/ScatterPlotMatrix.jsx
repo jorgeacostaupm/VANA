@@ -13,11 +13,11 @@ export const ScatterPlotMatrix = () => {
   const refMatrix = useRef(null);
 
   const selection = useSelector((state) => state.cantab.selection);
-  const populations = useSelector((state) => state.cantab.populations);
+  const groups = useSelector((state) => state.cantab.groups);
   const selectionPopulations = useSelector(
-    (state) => state.cantab.selection_populations
+    (state) => state.cantab.selectionGroups
   );
-  const group_var = useSelector((state) => state.cantab.group_var);
+  const groupVar = useSelector((state) => state.cantab.groupVar);
 
   const selectedPopulations = useSelector(
     (state) => state.correlation.selectedPopulations
@@ -45,9 +45,9 @@ export const ScatterPlotMatrix = () => {
         selection,
         columns,
         selectedPopulations,
-        group_var
+        groupVar
       );
-  }, [selection, columns, group_var, selectedPopulations, group_var, matrix]);
+  }, [selection, columns, groupVar, selectedPopulations, groupVar, matrix]);
 
   useEffect(() => {
     if (
@@ -63,7 +63,7 @@ export const ScatterPlotMatrix = () => {
       matrix.forceCorrelations = isOnlyCorrelations;
       matrix.onResize(dimensions);
     }
-  }, [result, pointsSize, populations, isOnlyCorrelations, dimensions]);
+  }, [result, pointsSize, groups, isOnlyCorrelations, dimensions]);
 
   useEffect(() => {
     if (matrix) {
@@ -74,19 +74,14 @@ export const ScatterPlotMatrix = () => {
 
   return (
     <>
-      <div id="correlation-tooltip"></div>
-      <div id="contextmenu-tooltip"></div>
       <div
         style={{
           width: "100%",
           height: "100%",
-          visibility: result?.length > 1 ? "visible" : "hidden",
         }}
       >
         <svg className="fill" id="correlation-app" ref={refMatrix} />
       </div>
-
-      <DownloadSVG id="correlation-app" />
     </>
   );
 };

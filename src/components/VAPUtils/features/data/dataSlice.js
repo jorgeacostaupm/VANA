@@ -1,16 +1,7 @@
-/*
-Slice con el dataframe original
-
-dataframe
-original columns ( para poder ocultar cosas)
-
-*/
-
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { from as loadObjects, loadCSV, addFunction } from "arquero";
 import * as XLSX from "xlsx";
 import * as aq from "arquero";
-import * as d3 from "d3";
 
 import { buildMetaFromVariableTypes } from "../metadata/metaCreatorReducer";
 import {
@@ -21,29 +12,21 @@ import {
   removeColumn,
 } from "./modifyReducers";
 
-import {
-  DEFAULT_POPULATION_VARIABLE,
-  DEFAULT_TIME_VARIABLE,
-  DEFAULT_ORDER_VARIABLE,
-  HIDDEN_VARIABLES,
-} from "@/components/VAPCANTAB/Utils/constants/Constants";
+import { ORDER_VARIABLE } from "@/utils/Constants";
 
-import {
-  setPreTransforms,
-  setTimeVar,
-  setGroupVar,
-} from "../cantab/cantabSlice";
-import { setFullMeta } from "../metadata/metaSlice";
+import { updateHierarchy } from "../metadata/metaSlice";
+
+import { generateTree, getVisibleNodes } from "@/utils/functions";
 
 const initialState = {
+  filename: null,
   dataframe: null,
   original: null,
   navioColumns: null,
-  loadedState: "ready", // 'loading', 'done',
+  loadedState: "ready",
   version: -1,
 };
 
-// takes an array of objects and returns the type of each field
 export const getVariableTypes = (df) => {
   const rows = df.objects();
   const result = {};
@@ -52,7 +35,7 @@ export const getVariableTypes = (df) => {
       if (obj.hasOwnProperty(key)) {
         const value = obj[key];
         if (value === null) {
-          continue; // Exit the loop for this object
+          continue;
         }
         const type = typeof value;
         const dtype =
@@ -115,56 +98,6 @@ export const updateFromCSV = createAsyncThunk(
   }
 );
 
-export function transformInitialData(data, population, time) {
-  let dt = aq.from(data);
-  let meta = getVariableTypes(dt);
-  const transformations = [];
-  const preTransformations = [];
-  const variables = [population, time];
-
-  variables.forEach((v) => {
-    if (dt.columnNames().includes(v)) {
-      //the transformation applied to the variable
-      transformations.push({
-        attribute: v,
-        original: meta[v],
-        transform: "string",
-        other: "",
-      });
-      //its original type to restored in case it changes
-      preTransformations.push({
-        attribute: v,
-        original: "string",
-        transform: meta[v],
-        other: "",
-      });
-    }
-  });
-  //applying the transformations, population and time variables should be strings
-  dt = applyTransformations(dt, transformations);
-  //data can bring my hidden variables?
-  //const filterDt = dt.select(aq.not(aq.escape((d) => HIDDEN_VARIABLES.includes(d.columnName))))
-  meta = getVariableTypes(dt);
-
-  return { dt, meta, pre_ret: preTransformations };
-}
-
-function getInitialData(data) {
-  let tmp = aq.from(data);
-
-  let { dt, meta, pre_ret } = transformInitialData(
-    tmp,
-    DEFAULT_POPULATION_VARIABLE,
-    DEFAULT_TIME_VARIABLE
-  );
-
-  if (!dt.columnNames().includes(DEFAULT_ORDER_VARIABLE)) {
-    dt = dt.derive({ [DEFAULT_ORDER_VARIABLE]: aq.op.row_number() });
-  }
-
-  return { dt, meta, pre_ret };
-}
-
 // ASUMES THAT THE LOADED HIERARCHY IS CORRECT
 export const updateFromJSON = createAsyncThunk(
   "dataframe/load-api",
@@ -196,13 +129,10 @@ export const updateFromJSON = createAsyncThunk(
       });
 
       const result = tmp.derive(formated, { drop: false });
-      let { dt, meta, pre_ret } = getInitialData(result.objects());
 
       return {
-        items: dt.objects(),
-        column_names: dt
-          .columnNames()
-          .filter((d) => d !== DEFAULT_ORDER_VARIABLE),
+        items: result.objects(),
+        column_names: dt.columnNames().filter((d) => d !== ORDER_VARIABLE),
       };
     } catch (err) {
       console.error(err);
@@ -211,47 +141,31 @@ export const updateFromJSON = createAsyncThunk(
   }
 );
 
-export const updateFromImport = createAsyncThunk(
+export const updateData = createAsyncThunk(
   "dataframe/load-import",
-  async ({ data, isGenerateHierarchy }, { dispatch, rejectWithValue }) => {
+  async (
+    { data, filename, isGenerateHierarchy },
+    { dispatch, rejectWithValue }
+  ) => {
     try {
-      const { dt, meta, pre_ret } = getInitialData(data);
+      let dt = aq.from(data);
+
+      // 1. generate hierarchy cols
+      let meta = getVariableTypes(dt);
+
+      // 2. then add our custom variable
+      dt = dt.derive({ [ORDER_VARIABLE]: aq.op.row_number() });
+
+      console.log(meta);
       if (isGenerateHierarchy) {
-        dispatch(setPreTransforms(pre_ret));
         dispatch(buildMetaFromVariableTypes(meta));
       }
       return {
+        filename: filename,
         items: dt.objects(),
-        column_names: dt
-          .columnNames()
-          .filter((d) => d !== DEFAULT_ORDER_VARIABLE),
+        column_names: dt.columnNames().filter((d) => d !== ORDER_VARIABLE),
         isNewColumns: isGenerateHierarchy,
       };
-    } catch (err) {
-      return rejectWithValue("Something is wrong with API data");
-    }
-  }
-);
-
-export const updateDataAppVariables = createAsyncThunk(
-  "cantab/updateDataAppVariables",
-  async (payload, { dispatch, rejectWithValue, getState }) => {
-    try {
-      const preTransforms = getState().cantab.preTransforms;
-      const time = payload.time;
-      const population = payload.population;
-      let tmp = aq.from(getState().dataframe.dataframe);
-      tmp = applyTransformations(tmp, preTransforms);
-
-      const { dt, meta, pre_ret } = transformInitialData(tmp, population, time);
-
-      dispatch(setGroupVar(population));
-      dispatch(setTimeVar(time));
-      //ESTO SE DEBERIA LANZAR PARA ACTUALIZAR EL ARBOL Y GUARDAR LAS NUEVAS TRANSFORMS
-      //dispatch(setPreTransforms(pre_ret));
-      //dispatch(buildMetaFromData(meta));
-
-      return dt.objects();
     } catch (err) {
       return rejectWithValue("Something is wrong with API data");
     }
@@ -297,7 +211,6 @@ export const dataSlice = createSlice({
       state.version += 1;
     }),
     setNavioColumns: create.reducer((state, action) => {
-      console.log("settin nabio colums ", action.payload);
       state.navioColumns = action.payload;
     }),
     setDataframe: create.reducer((state, action) => {
@@ -306,31 +219,19 @@ export const dataSlice = createSlice({
     }),
   }),
   extraReducers: (builder) => {
-    builder.addCase(setFullMeta, (state, action) => {
-      const data = action.payload;
-      const tree = generateTree(data, 0);
-      const filtered = getFilteredNodes(tree);
+    builder.addCase(updateHierarchy.fulfilled, (state, action) => {
+      const { hierarchy } = action.payload;
+      const tree = generateTree(hierarchy, 0);
+      const filtered = getVisibleNodes(tree);
       state.navioColumns = filtered;
-      console.log("filtered", filtered);
     }),
-      builder.addCase(updateFromJSON.pending, (state, action) => {
+      builder.addCase(updateData.pending, (state, action) => {
         state.loadedState = "loading";
       }),
-      builder.addCase(updateFromJSON.fulfilled, (state, action) => {
+      builder.addCase(updateData.fulfilled, (state, action) => {
         state.loadedState = "done";
-        state.dataframe = action.payload.items;
-        state.original = action.payload.column_names;
-        state.version += 1;
-      }),
-      builder.addCase(updateFromJSON.rejected, (state, action) => {
-        state.loadedState = "error";
-      });
-
-    builder.addCase(updateFromImport.pending, (state, action) => {
-      state.loadedState = "loading";
-    }),
-      builder.addCase(updateFromImport.fulfilled, (state, action) => {
-        state.loadedState = "done";
+        console.log(action.payload);
+        state.filename = action.payload.filename;
         state.dataframe = action.payload.items;
         if (action.payload.isNewColumns) {
           state.navioColumns = action.payload.column_names;
@@ -339,7 +240,7 @@ export const dataSlice = createSlice({
 
         state.version += 1;
       }),
-      builder.addCase(updateFromImport.rejected, (state, action) => {
+      builder.addCase(updateData.rejected, (state, action) => {
         state.loadedState = "error";
       });
 
@@ -410,41 +311,3 @@ export default dataSlice.reducer;
 
 // selector para no duplicar datos
 export const selectDataframe = (state) => state.dataframe.dataframe;
-
-function generateTree(meta, nodeID) {
-  const node = meta.find((item) => item.id === nodeID);
-  // console.log(nodeID, node);
-  if (node == null) return null;
-
-  const children = node.related.map((childID) => generateTree(meta, childID));
-  return {
-    id: node.id,
-    name: node.name,
-    children: children,
-    isShown: node.isShown,
-    type: node.type,
-    formula: node?.info?.formula,
-  };
-}
-
-function getFilteredNodes(tree) {
-  const filteredNodes = [];
-  const queue = [tree];
-
-  while (queue.length > 0) {
-    const node = queue.shift();
-
-    if (
-      node.isShown === false ||
-      !node.children ||
-      node.children.length === 0
-    ) {
-      if (node?.type === "aggregation" || node?.formula === "") {
-      } else filteredNodes.push(node.name);
-    } else if (node.children && node.children.length > 0) {
-      queue.push(...node.children);
-    }
-  }
-
-  return filteredNodes;
-}

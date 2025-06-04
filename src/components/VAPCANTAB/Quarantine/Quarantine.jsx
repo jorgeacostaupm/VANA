@@ -1,36 +1,35 @@
-import React, { useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import navio from "navio";
-import {
-  setSelection,
-  setQuarantineSelection,
-} from "@/components/VAPUtils/features/cantab/cantabSlice";
+import * as d3 from "d3";
+import { setQuarantineSelection } from "@/components/VAPUtils/features/cantab/cantabSlice";
+import useResizeObserver from "@/utils/useResizeObserver";
 
-// Disable navio console logs
-/* const originalConsoleLog = console.log;
-console.log = function () {
-  if (typeof arguments[0] == 'string' && !arguments[0].includes('Navio')) {
-    originalConsoleLog.apply(console, arguments);
-  }
-}; */
+function useDebounce(value, delay) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debounced;
+}
 
 const Quarantine = () => {
+  const dispatch = useDispatch();
   const holderRef = useRef(null);
   const navioColumnsRef = useRef(null);
   const versionRef = useRef(null);
-  const attrWidthRef = useRef(null);
+  const prevDimensionsRef = useRef({ width: null, height: null });
 
   const navioColumns = useSelector((state) => state.dataframe.navioColumns);
   const version = useSelector((state) => state.dataframe.version);
-  const attr_width = useSelector((state) => state.cantab.attr_width);
+  const attrWidth = useSelector((state) => state.cantab.attrWidth);
   const dt = useSelector((state) => state.cantab.quarantineData);
-  const dispatch = useDispatch();
 
-  /* const [nv, setNv] = useState(null);
-  useEffect(() => {
-    const nav = navio(holderRef.current, holderRef.current.getBoundingClientRect().height);
-    setNv(nav);
-  }, []); */
+  const dimensions = useResizeObserver(holderRef);
+  const debouncedDimensions = useDebounce(dimensions, 200);
 
   function navioCallback(data) {
     const deepCopyData = JSON.parse(JSON.stringify(data));
@@ -38,38 +37,61 @@ const Quarantine = () => {
   }
 
   function updateNavio() {
-    const nv = navio(holderRef.current, window.innerHeight * 0.85);
-    const deepCopyDt = JSON.parse(JSON.stringify(dt)); // Navio needs to modifiy the content, and redux uses inmutable objects, so we need a copy
-    nv.attribWidth = attr_width;
-    nv.data(deepCopyDt);
-    nv.addAllAttribs(navioColumns);
+    if (!dt || !debouncedDimensions || !navioColumns) return;
+
+    const nv = navio(holderRef.current, debouncedDimensions.height);
+    const deepCopyData = JSON.parse(JSON.stringify(dt));
+    nv.attribWidth = attrWidth;
+    nv.data(deepCopyData);
     nv.updateCallback(navioCallback);
+    if (dt.length > 0) nv.addAllAttribs(navioColumns);
+    nv.hardUpdate();
+
+    d3.select(holderRef.current).select("svg").attr("id", "navio-svg");
+
+    dispatch(setQuarantineSelection(dt));
     navioColumnsRef.current = navioColumns;
     versionRef.current = version;
-    attrWidthRef.current = attr_width;
   }
 
   useEffect(() => {
-    if (dt) {
-      const navioColumnsChanged =
-        JSON.stringify(navioColumnsRef.current) !==
-        JSON.stringify(navioColumns);
-      const versionChanged = versionRef.current !== version;
-      if (navioColumnsChanged || versionChanged) {
-        updateNavio();
-      }
-    }
-  }, [navioColumns, dt, attr_width, version]);
-
-  useEffect(() => {
-    if (dt) {
+    const navioColumnsChanged =
+      JSON.stringify(navioColumnsRef.current) !== JSON.stringify(navioColumns);
+    const versionChanged = versionRef.current !== version;
+    if (navioColumnsChanged || versionChanged) {
       updateNavio();
     }
-  }, [dt, attr_width]);
+  }, [navioColumns, version]);
 
-  console.log("RENDERING QUARANTINE VIEW...");
+  useEffect(() => {
+    if (!debouncedDimensions?.height || !debouncedDimensions?.width) return;
 
-  return <div className="fill" ref={holderRef} />;
+    const { width, height } = debouncedDimensions;
+    const { width: prevWidth, height: prevHeight } = prevDimensionsRef.current;
+
+    const hasChanged = width !== prevWidth || height !== prevHeight;
+
+    if (hasChanged) {
+      updateNavio();
+      prevDimensionsRef.current = { width, height };
+    }
+  }, [debouncedDimensions]);
+
+  useEffect(() => {
+    updateNavio();
+  }, [attrWidth]);
+
+  return (
+    <div
+      style={{
+        overflow: "visible",
+        width: "100%",
+        height: "100%",
+        marginTop: "20px",
+      }}
+      ref={holderRef}
+    ></div>
+  );
   1;
 };
 

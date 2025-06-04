@@ -1,20 +1,15 @@
-import React, { useCallback, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { useDropzone } from 'react-dropzone';
-import { FileProcessorFactory } from './drag';
-import { Button } from 'antd';
-import store from '@/components/VAPUtils/features/store';
-import { updateFromImport } from '@/components/VAPUtils/features/data/dataSlice';
-import { PlusOutlined } from '@ant-design/icons';
+import React, { useCallback, useState } from "react";
+import { useSelector } from "react-redux";
+import { useDropzone } from "react-dropzone";
+import { FileProcessorFactory } from "./drag";
+import { Button } from "antd";
+import store from "@/components/VAPUtils/features/store";
+import { updateData } from "@/components/VAPUtils/features/data/dataSlice";
+import { PlusOutlined } from "@ant-design/icons";
 
 const handleFileParsed = (data) => {
-  console.log('Parsed Data:', data);
-
-  const newArray = data.map((item) => ({
-    ...item
-  }));
-
-  store.dispatch(updateFromImport(newArray));
+  console.log("Parsed Data:", data);
+  store.dispatch(updateData({ data, isGenerateHierarchy: false }));
 };
 
 const DragAndDropCSV = () => {
@@ -26,10 +21,10 @@ const DragAndDropCSV = () => {
     (acceptedFiles) => {
       acceptedFiles.forEach((file) => {
         const reader = new FileReader();
-        const fileType = file.name.split('.').pop().toLowerCase();
+        const fileType = file.name.split(".").pop().toLowerCase();
 
-        reader.onabort = () => console.log('File reading was aborted');
-        reader.onerror = () => console.log('File reading has failed');
+        reader.onabort = () => console.log("File reading was aborted");
+        reader.onerror = () => console.log("File reading has failed");
 
         reader.onload = () => {
           const fileContent = reader.result;
@@ -39,17 +34,17 @@ const DragAndDropCSV = () => {
             setFilename(file.name);
           } catch (error) {
             notApi.error({
-              message: 'Error reading file',
+              message: "Error reading file",
               description: error.message,
-              placement: 'bottomRight',
-              duration: 3
+              placement: "bottomRight",
+              duration: 3,
             });
             console.error(error.message);
           }
         };
 
         // Read the file as binary string for Excel files, otherwise as text
-        if (fileType === 'xls' || fileType === 'xlsx') {
+        if (fileType === "xls" || fileType === "xlsx") {
           reader.readAsBinaryString(file);
         } else {
           reader.readAsText(file);
@@ -62,41 +57,41 @@ const DragAndDropCSV = () => {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     maxFiles: 1,
-    accept: '.csv, .tsv, .txt, .xls, .xlsx, .json'
+    accept: ".csv, .tsv, .txt, .xls, .xlsx, .json",
   });
 
   const dropzoneStyle = {
-    height: '200px',
-    width: '100%',
-    borderStyle: 'dashed',
-    borderWidth: '2px',
-    borderColor: '#1677ff',
-    borderRadius: '8px',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    cursor: 'pointer',
-    backgroundColor: isDragActive ? '#e6f7ff' : '#fafafa'
+    height: "200px",
+    width: "100%",
+    borderStyle: "dashed",
+    borderWidth: "2px",
+    borderColor: "#1677ff",
+    borderRadius: "8px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    cursor: "pointer",
+    backgroundColor: isDragActive ? "#e6f7ff" : "#fafafa",
   };
 
   const iconStyle = {
-    fontSize: '2rem',
-    color: '#1677ff',
-    fontWeight: 'bold'
+    fontSize: "2rem",
+    color: "#1677ff",
+    fontWeight: "bold",
   };
 
   const textStyle = {
-    color: '#1677ff',
-    fontSize: '1.125rem', // Equivalent to text-lg
-    textAlign: 'center',
-    padding: '0 1rem'
+    color: "#1677ff",
+    fontSize: "1.125rem", // Equivalent to text-lg
+    textAlign: "center",
+    padding: "0 1rem",
   };
 
   const subtitleStyle = {
-    color: '#9CA3AF', // Equivalent to text-gray-400
-    fontSize: '0.875rem', // Equivalent to text-sm
-    textAlign: 'center',
-    padding: '0 1rem'
+    color: "#9CA3AF", // Equivalent to text-gray-400
+    fontSize: "0.875rem", // Equivalent to text-sm
+    textAlign: "center",
+    padding: "0 1rem",
   };
 
   return (
@@ -104,16 +99,28 @@ const DragAndDropCSV = () => {
       <div {...getRootProps({ style: dropzoneStyle })}>
         <input {...getInputProps()} />
         {!isDragActive && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {!fileName && <PlusOutlined style={{ color: '#1677ff' }} />}
-            <span style={textStyle}>{fileName ? fileName : 'Click or Drop the file.'}</span>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
+          >
+            {!fileName && <PlusOutlined style={{ color: "#1677ff" }} />}
+            <span style={textStyle}>
+              {fileName ? fileName : "Click or Drop the file."}
+            </span>
             {!fileName && (
-              <span style={subtitleStyle}>CSV, TSV, TXT, XLS, XLSX and JSON accepted.</span>
+              <span style={subtitleStyle}>
+                CSV, TSV, TXT, XLS, XLSX and JSON accepted.
+              </span>
             )}
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
+      <div
+        style={{ display: "flex", justifyContent: "center", marginTop: "1rem" }}
+      >
         <Button type="primary" onClick={() => handleFileParsed(data)}>
           Upload
         </Button>

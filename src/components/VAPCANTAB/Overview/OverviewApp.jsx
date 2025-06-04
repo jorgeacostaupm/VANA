@@ -1,20 +1,17 @@
 import React from "react";
-import { useSelector } from "react-redux";
-import NoData from "@/components/VAPConnectivity/components/NoData";
 import Overview from "./Overview";
+import { Bar } from "@/utils/ChartBar";
+import styles from "@/utils//Charts.module.css";
 import OverviewButtons from "./OverviewButtons";
 
-const OverviewApp = () => {
-  const dt = useSelector((state) => state.dataframe.dataframe);
-
+export default function OverviewApp() {
   return (
-    <div className="overviewLayout">
-      <OverviewButtons></OverviewButtons>
-      <Overview></Overview>
-      {!dt && <NoData />}
+    <div className={styles.viewContainer}>
+      <Bar title={"Navio"}>
+        <OverviewButtons></OverviewButtons>
+      </Bar>
+
+      <Overview />
     </div>
   );
-  1;
-};
-
-export default OverviewApp;
+}

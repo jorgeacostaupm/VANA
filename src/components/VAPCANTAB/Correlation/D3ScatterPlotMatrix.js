@@ -116,10 +116,10 @@ export class D3ScatterPlotMatrix {
 
     vis.scMaxTextLength = Math.round(vis.squareSize / vis.columns.length / 10);
 
-    vis.populations = store.getState().cantab.selection_populations;
+    vis.populations = store.getState().cantab.selectionGroups;
     vis.groups = store.getState().cantab.populations;
-    vis.groupVar = store.getState().cantab.group_var;
-    vis.timeVar = store.getState().cantab.time_var;
+    vis.groupVar = store.getState().cantab.groupVar;
+    vis.timeVar = store.getState().cantab.timeVar;
 
     vis.dict = {};
 

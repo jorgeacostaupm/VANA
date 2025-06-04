@@ -1,9 +1,9 @@
 import { useState } from "react";
 import "./App.css";
-import MainCANTABApp from "./components/VAPCANTAB/MainCANTABApp";
+import CANTABVis from "./components/VAPCANTAB/CANTABVis";
 
 function App() {
-  return <MainCANTABApp></MainCANTABApp>;
+  return <CANTABVis></CANTABVis>;
 }
 
 export default App;

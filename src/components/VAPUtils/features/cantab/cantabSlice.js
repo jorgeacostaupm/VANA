@@ -1,41 +1,29 @@
-import * as aq from "arquero";
-
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-
-import {
-  setDataframe,
-  updateDataAppVariables,
-  updateFromImport,
-  updateFromJSON,
-} from "../data/dataSlice";
-
+import { setDataframe, updateData } from "../data/dataSlice";
 import {
   generateAggregation,
   generateAggregationBatch,
 } from "../data/modifyReducers";
-
-import {} from "@/components/VAPUtils/Constants";
-
 import {
-  ID_VARIABLE,
-  DEFAULT_POPULATION_VARIABLE,
-  DEFAULT_TIME_VARIABLE,
-} from "@/components/VAPCANTAB/Utils/constants/Constants";
+  DEFAULT_GROUP_VARIABLE,
+  DEFAULT_TIMESTAMP_VARIABLE,
+  DEFAULT_ID_VARIABLE,
+} from "@/utils/Constants";
 
 import { pubsub } from "@/components/VAPUtils/pubsub";
+import { identifyTypes } from "../../../../utils/functions";
+import { HIDDEN_VARIABLES, VariableTypes } from "../../../../utils/Constants";
 const { publish } = pubsub;
 
-// Thunks
 export const setTimeVar = createAsyncThunk(
   "cantab/setTimeVar",
   async (timeVar, { getState }) => {
     const state = getState();
     const dataframe = state.dataframe.dataframe;
-
+    const timestamps = [...new Set(dataframe.map((d) => d[timeVar]))];
     return {
-      time_var: timeVar,
-      times: [...new Set(dataframe.map((d) => d[timeVar]))],
-      selection_times: [...new Set(dataframe.map((d) => d[timeVar]))],
+      timeVar: timeVar,
+      timestamps: timestamps,
     };
   }
 );
@@ -45,16 +33,13 @@ export const setGroupVar = createAsyncThunk(
   async (groupVar, { getState }) => {
     const state = getState();
     const dataframe = state.dataframe.dataframe;
-
+    const groups = [...new Set(dataframe.map((d) => d[groupVar]))];
     return {
-      group_var: groupVar,
-      populations: [...new Set(dataframe.map((d) => d[groupVar]))],
-      selection_populations: [...new Set(dataframe.map((d) => d[groupVar]))],
+      groupVar: groupVar,
+      groups: groups,
     };
   }
 );
-
-// Initial
 
 const initialState = {
   selectedIds: [],
@@ -62,8 +47,9 @@ const initialState = {
 
   notApi: null,
   init: false,
+  initQuarantine: false,
 
-  attr_width: 20,
+  attrWidth: 20,
 
   quarantineData: null,
   quarantineSelection: null,
@@ -74,16 +60,17 @@ const initialState = {
   preTransforms: null,
   descriptions: {},
 
-  times: null,
-  populations: null,
+  timestamps: null,
+  groups: null,
 
   selection: null,
-  selection_times: null,
-  selection_populations: null,
+  selectionTimestamps: null,
+  selectionGroups: null,
+  varTypes: null,
 
-  time_var: DEFAULT_TIME_VARIABLE,
-  group_var: DEFAULT_POPULATION_VARIABLE,
-  idVar: ID_VARIABLE,
+  idVar: DEFAULT_ID_VARIABLE,
+  groupVar: DEFAULT_GROUP_VARIABLE,
+  timeVar: DEFAULT_TIMESTAMP_VARIABLE,
 };
 
 // Reducers
@@ -95,22 +82,16 @@ const cantabSlice = createSlice({
     setInit: (state, action) => {
       state.init = action.payload;
     },
-
-    /* setData: (state, action) => {
-      state.data = action.payload;
-      state.selection = action.payload;
-      state.populations = [...new Set(action.payload.map((d) => d[state.group_var]))];
-      state.times = [...new Set(action.payload.map((d) => d[state.time_var]))];
-      state.selection_populations = [...new Set(action.payload.map((d) => d[state.group_var]))];
-      state.selection_times = [...new Set(action.payload.map((d) => d[state.time_var]))];
-    }, */
-
+    setInitQuarantine: (state, action) => {
+      state.initQuarantine = action.payload;
+    },
     setFilteredData: (state, action) => {
       state.filteredData = action.payload;
     },
 
     setQuarantineData: (state, action) => {
       state.quarantineData = action.payload;
+      state.quarantineSelection = action.payload;
     },
 
     setScenarioRunResults: (state, action) => {
@@ -128,28 +109,18 @@ const cantabSlice = createSlice({
     },
     setSelection: (state, action) => {
       state.selection = action.payload;
-      state.selection_populations = [
-        ...new Set(action.payload.map((d) => d[state.group_var])),
+      state.selectionGroups = [
+        ...new Set(action.payload.map((d) => d[state.groupVar])),
       ];
-      state.selection_times = [
-        ...new Set(action.payload.map((d) => d[state.time_var])),
+      state.selectionTimestamps = [
+        ...new Set(action.payload.map((d) => d[state.timeVar])),
       ];
     },
     setQuarantineSelection: (state, action) => {
       state.quarantineSelection = action.payload;
     },
-    /* setTimeVar: (state, action) => {
-      state.time_var = action.payload;
-      state.times = [...new Set(state.data.map((d) => d[state.time_var]))];
-      state.selection_times = [...new Set(state.data.map((d) => d[state.time_var]))];
-    },
-    setGroupVar: (state, action) => {
-      state.group_var = action.payload;
-      state.populations = [...new Set(state.data.map((d) => d[state.group_var]))];
-      state.selection_populations = [...new Set(state.data.map((d) => d[state.group_var]))];
-    }, */
     setAttrWidth: (state, action) => {
-      state.attr_width = action.payload;
+      state.attrWidth = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -157,86 +128,37 @@ const cantabSlice = createSlice({
       .addCase(setDataframe, (state, action) => {
         const items = action.payload;
         state.selection = items;
-        state.populations = [...new Set(items.map((d) => d[state.group_var]))];
-        state.times = [...new Set(items.map((d) => d[state.time_var]))];
-        state.selection_populations = [
-          ...new Set(items.map((d) => d[state.group_var])),
-        ];
-        state.selection_times = [
-          ...new Set(items.map((d) => d[state.time_var])),
-        ];
+        const groups = [...new Set(items.map((d) => d[state.groupVar]))];
+        const timestamps = [...new Set(items.map((d) => d[state.timeVar]))];
+        state.groups = groups;
+        state.selectionGroups = groups;
+        state.timestamps = timestamps;
+        state.selectionTimestamps = timestamps;
       })
       .addCase(setTimeVar.fulfilled, (state, action) => {
-        state.time_var = action.payload.time_var;
-        state.times = action.payload.times;
-        state.selection_times = action.payload.selection_times;
+        state.timeVar = action.payload.timeVar;
+        state.timestamps = action.payload.timestamps;
+        state.selectionTimestamps = action.payload.timestamps;
       })
       .addCase(setGroupVar.fulfilled, (state, action) => {
-        state.group_var = action.payload.group_var;
-        state.populations = action.payload.populations;
-        state.selection_populations = action.payload.selection_populations;
+        state.groupVar = action.payload.groupVar;
+        state.groups = action.payload.groups;
+        state.selectionGroups = action.payload.groups;
       });
 
-    builder
-      .addCase(updateDataAppVariables.fulfilled, (state, action) => {
-        const configuration = {
-          message: "Variables Assigned",
-          description: "",
-          placement: "topRight",
-          type: "success",
-        };
-        publish("notification", configuration);
-      })
-      .addCase(updateDataAppVariables.rejected, (state, action) => {
-        const configuration = {
-          message: "Error Assigning Variables",
-          description: action.payload,
-          type: "error",
-        };
-        publish("notification", configuration);
-      });
-
-    builder.addCase(updateFromJSON.fulfilled, (state, action) => {
-      const items = action.payload.items;
-      state.selection = items;
-      state.populations = [...new Set(items.map((d) => d[state.group_var]))];
-      state.times = [...new Set(items.map((d) => d[state.time_var]))];
-      state.selection_populations = [
-        ...new Set(items.map((d) => d[state.group_var])),
-      ];
-      state.selection_times = [...new Set(items.map((d) => d[state.time_var]))];
-
-      /* const metadata = generateMetadata(items, state.group_var, state.time_var, state.populations);
-      state.pop_metadata = metadata; 
-      */
-
-      const configuration = {
-        message: "Data Loaded",
-        description: "",
-        placement: "bottomRight",
-        type: "success",
-      };
-      publish("notification", configuration);
-    }),
-      builder.addCase(updateFromJSON.rejected, (state, action) => {
-        const configuration = {
-          message: "Error Loading Data",
-          description: action.payload,
-          type: "error",
-        };
-        publish("notification", configuration);
-      });
-
-    builder.addCase(updateFromImport.fulfilled, (state, action) => {
+    builder.addCase(updateData.fulfilled, (state, action) => {
       const items = action.payload.items;
       state.quarantineData = [];
       state.selection = items;
-      state.populations = [...new Set(items.map((d) => d[state.group_var]))];
-      state.times = [...new Set(items.map((d) => d[state.time_var]))];
-      state.selection_populations = [
-        ...new Set(items.map((d) => d[state.group_var])),
-      ];
-      state.selection_times = [...new Set(items.map((d) => d[state.time_var]))];
+      state.varTypes = identifyTypes(items);
+      const groups = [...new Set(items.map((d) => d[state.groupVar]))];
+      const timestamps = [...new Set(items.map((d) => d[state.timeVar]))];
+
+      state.groups = groups;
+      state.selectionGroups = groups;
+      state.timestamps = timestamps;
+      state.selectionTimestamps = timestamps;
+
       const configuration = {
         message: "Data Loaded",
         description: "",
@@ -245,7 +167,7 @@ const cantabSlice = createSlice({
       };
       publish("notification", configuration);
     }),
-      builder.addCase(updateFromImport.rejected, (state, action) => {
+      builder.addCase(updateData.rejected, (state, action) => {
         const configuration = {
           message: "Error Loading Data",
           description: action.payload,
@@ -302,72 +224,69 @@ export const {
   setSelectedIds,
   setDescriptions,
 
+  setInitQuarantine,
   setQuarantineData,
   setQuarantineSelection,
 } = cantabSlice.actions;
 
-function generateMetadata(items, population_var, time_var, populations) {
-  const df = aq.from(items);
-  const age_var = "age";
+import { createSelector } from "reselect";
 
-  const grouped = df.groupby(population_var);
+const selectVarTypes = (state) => state.cantab.varTypes;
+const selectNavioColumns = (state) => state.dataframe.navioColumns || [];
 
-  const meanByPopulation = grouped.rollup({
-    mean: aq.op.mean(age_var),
-    std: aq.op.stdev(age_var),
-    count: aq.op.count(),
-  });
+export const selectNumericVars = createSelector(
+  [selectVarTypes, selectNavioColumns],
+  (varTypes, navioColumns) =>
+    Object.entries(varTypes)
+      .filter(
+        ([key, type]) =>
+          type === VariableTypes.NUMERICAL && navioColumns.includes(key)
+      )
+      .map(([key]) => key)
+);
 
-  const statistics = meanByPopulation.objects();
+export const selectCategoricalVars = createSelector(
+  [selectVarTypes, selectNavioColumns],
+  (varTypes, navioColumns) =>
+    Object.entries(varTypes)
+      .filter(
+        ([key, type]) =>
+          type === VariableTypes.CATEGORICAL && navioColumns.includes(key)
+      )
+      .map(([key]) => key)
+);
 
-  const variableNames = [
-    "sex_id",
-    "income",
-    time_var,
-    "ethnic",
-    "marital_status",
-    "housing",
-    "education_level",
-    "employment",
-  ];
-  const tmp = [];
-  variableNames.forEach((v) => {
-    let g = grouped.groupby(population_var).groupby(population_var, v).count();
-    tmp.push(g.objects());
-  });
+export const selectUnkownVars = createSelector(
+  [selectVarTypes, selectNavioColumns],
+  (varTypes, navioColumns) =>
+    Object.entries(varTypes)
+      .filter(
+        ([key, type]) =>
+          type === VariableTypes.UNKNOWN && navioColumns.includes(key)
+      )
+      .map(([key]) => key)
+);
 
-  let metadata = [];
+export const selectVars = createSelector(
+  [selectVarTypes, selectNavioColumns],
+  (varTypes, navioColumns) =>
+    Object.entries(varTypes)
+      .filter(
+        ([key, type]) =>
+          (type === VariableTypes.CATEGORICAL ||
+            type === VariableTypes.NUMERICAL) &&
+          navioColumns.includes(key) &&
+          !HIDDEN_VARIABLES.includes(key)
+      )
+      .map(([key]) => key)
+);
 
-  populations.forEach((pop) => {
-    const population = {};
-    population.name = pop;
-
-    const s = statistics.find((item) => item[population_var] === pop);
-    const age = { mean: s.mean.toFixed(2), std: s.std ? s.std.toFixed(2) : 0 };
-    population.age = age;
-    population.n_records = s.count;
-    population.histograms = [];
-
-    tmp.forEach((item, i) => {
-      let values = item.filter((i) => i[population_var] === pop);
-      let tmp_list = [];
-      let name = variableNames[i];
-      values.forEach((v) => {
-        let count = v.count;
-        let cat_name = v[name];
-        let desc = v[name];
-        const tmp = { name: cat_name, description: desc, total: count };
-        tmp_list.push(tmp);
-      });
-
-      const histogram = {};
-      histogram.name = name;
-      histogram.data = tmp_list;
-      population.histograms.push(histogram);
-    });
-
-    metadata.push(population);
-  });
-
-  return metadata;
-}
+export const selectAllVars = createSelector(
+  [selectVarTypes, selectNavioColumns],
+  (varTypes, navioColumns) =>
+    Object.entries(varTypes)
+      .filter(
+        ([key]) => navioColumns.includes(key) && !HIDDEN_VARIABLES.includes(key)
+      )
+      .map(([key]) => key)
+);
