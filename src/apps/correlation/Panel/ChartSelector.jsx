@@ -1,0 +1,38 @@
+import React, { useState } from "react";
+import { Select } from "antd";
+import { AreaChartOutlined } from "@ant-design/icons";
+
+import styles from "@/utils/App.module.css";
+import ColoredButton from "@/utils/ColoredButton";
+import registry from "../registry";
+
+const { Option } = Select;
+
+export default function ChartSelector({ addView }) {
+  const [chart, setChart] = useState(null);
+
+  return (
+    <div className={styles.panelBox}>
+      <Select
+        onChange={(v) => setChart(v)}
+        placeholder="Select graph"
+        style={{ width: "300px" }}
+        size="large"
+      >
+        {Object.keys(registry).map((v) => (
+          <Option key={v} value={v}>
+            {v}
+          </Option>
+        ))}
+      </Select>
+
+      <ColoredButton
+        title={"Add the selected correlation chart"}
+        icon={<AreaChartOutlined />}
+        onClick={() => {
+          if (chart) addView(chart);
+        }}
+      />
+    </div>
+  );
+}

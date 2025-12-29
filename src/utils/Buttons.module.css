@@ -1,0 +1,46 @@
+.barButton {
+  color: var(--primary-color);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.greyBarButton {
+  color: #d9d9d9;
+  cursor: pointer;
+}
+
+.barButton:hover {
+  border: 1px solid var(--primary-color);
+}
+
+.coloredButton {
+  background-color: var(--primary-color);
+  color: white;
+  border: 2px solid transparent;
+  transition: border 0.2s;
+}
+
+.coloredButton:hover {
+  border: 2px solid var(--primary-color);
+}
+
+.panelButton {
+  color: var(--primary-color);
+  border: 2px solid transparent;
+  font-size: x-large;
+}
+
+.panelButton:hover {
+  border: 2px solid var(--primary-color);
+}
+
+.warningButton {
+  border: none;
+  cursor: pointer;
+}
+
+.borderedButton {
+  color: var(--primary-color);
+  border: 2px solid;
+  cursor: pointer;
+}

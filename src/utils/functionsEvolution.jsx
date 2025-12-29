@@ -1,0 +1,365 @@
+import * as aq from "arquero";
+import { jStat } from "jstat";
+
+function extractNumber(str) {
+  const match = String(str).match(/(\d+(\.\d+)?)/);
+  return match ? parseFloat(match[1]) : null;
+}
+
+function compareTimestamps(a, b) {
+  const na = extractNumber(a);
+  const nb = extractNumber(b);
+
+  const aIsNum = typeof a === "number";
+  const bIsNum = typeof b === "number";
+
+  if (aIsNum && bIsNum) return a - b;
+
+  if (na !== null && nb !== null) return na - nb;
+
+  if (na !== null && nb === null) return -1;
+  if (na === null && nb !== null) return 1;
+
+  return String(a).localeCompare(String(b), undefined, { numeric: true });
+}
+
+function runRMAnova(participantData, times) {
+  const alpha = 0.05;
+
+  // ----------------------------------------
+  // 1. Filtrar sujetos con datos completos
+  // ----------------------------------------
+  const completeSubjects = participantData.filter((p) =>
+    times.every((t) =>
+      p.values.some(
+        (v) => v.timestamp === t && v.value !== null && !isNaN(v.value)
+      )
+    )
+  );
+
+  const excluded = participantData.length - completeSubjects.length;
+
+  const subjects = completeSubjects.length;
+  const groups = [...new Set(completeSubjects.map((p) => p.group))];
+  const G = groups.length;
+  const T = times.length;
+
+  if (subjects < 2 || T < 2) {
+    return {
+      error: "Se necesitan ≥2 sujetos con medidas completas y ≥2 tiempos.",
+    };
+  }
+
+  // ----------------------------------------
+  // 2. Construir matrices
+  // ----------------------------------------
+  const Y = completeSubjects.map((p) =>
+    times.map((t) => +p.values.find((v) => v.timestamp === t).value)
+  );
+
+  // ----------------------------------------
+  // 3. Medias
+  // ----------------------------------------
+  const grandMean = Y.flat().reduce((a, b) => a + b, 0) / (subjects * T);
+
+  const timeMeans = times.map((_, ti) => jStat.mean(Y.map((row) => row[ti])));
+
+  const groupMeans = groups.map((g) => {
+    const vals = completeSubjects
+      .filter((p) => p.group === g)
+      .flatMap((p) =>
+        times.map((t) => +p.values.find((v) => v.timestamp === t).value)
+      );
+    return jStat.mean(vals);
+  });
+
+  const cellMeans = groups.map((g) =>
+    times.map((t) => {
+      const vals = completeSubjects
+        .filter((p) => p.group === g)
+        .map((p) => +p.values.find((v) => v.timestamp === t).value);
+      return jStat.mean(vals);
+    })
+  );
+
+  // ----------------------------------------
+  // 4. Sumas de cuadrados
+  // ----------------------------------------
+  const ssTime =
+    subjects * timeMeans.reduce((acc, mt) => acc + (mt - grandMean) ** 2, 0);
+
+  const ssGroup =
+    T * groupMeans.reduce((acc, mg) => acc + (mg - grandMean) ** 2, 0);
+
+  let ssInteraction = 0;
+  for (let gi = 0; gi < G; gi++) {
+    for (let ti = 0; ti < T; ti++) {
+      ssInteraction +=
+        (cellMeans[gi][ti] - groupMeans[gi] - timeMeans[ti] + grandMean) ** 2;
+    }
+  }
+  ssInteraction *= subjects / G;
+
+  let ssError = 0;
+  completeSubjects.forEach((p) => {
+    const subjMean =
+      times.reduce(
+        (a, t) => a + +p.values.find((v) => v.timestamp === t).value,
+        0
+      ) / T;
+
+    times.forEach((t) => {
+      const v = +p.values.find((x) => x.timestamp === t).value;
+      ssError += (v - subjMean) ** 2;
+    });
+  });
+
+  // ----------------------------------------
+  // 5. Grados de libertad
+  // ----------------------------------------
+  const dfTime = T - 1;
+  const dfGroup = G - 1;
+  const dfInteraction = dfGroup * dfTime;
+  const dfError = (subjects - G) * dfTime;
+
+  // ----------------------------------------
+  // 6. Estadísticos
+  // ----------------------------------------
+  const msTime = ssTime / dfTime;
+  const msGroup = ssGroup / dfGroup;
+  const msInteraction = ssInteraction / dfInteraction;
+  const msError = ssError / dfError;
+
+  const Ftime = msTime / msError;
+  const Fgroup = msGroup / msError;
+  const Finteraction = msInteraction / msError;
+
+  const pTime = 1 - jStat.centralF.cdf(Ftime, dfTime, dfError);
+  const pGroup = 1 - jStat.centralF.cdf(Fgroup, dfGroup, dfError);
+  const pInteraction =
+    1 - jStat.centralF.cdf(Finteraction, dfInteraction, dfError);
+
+  const etaTime = ssTime / (ssTime + ssError);
+  const etaGroup = ssGroup / (ssGroup + ssError);
+  const etaInteraction = ssInteraction / (ssInteraction + ssError);
+
+  // ----------------------------------------
+  // 7. HTML separado
+  // ----------------------------------------
+  const html = renderRMAnovaHTML({
+    groups,
+    times,
+    cellMeans,
+    dfTime,
+    dfGroup,
+    dfInteraction,
+    dfError,
+    Ftime,
+    Fgroup,
+    Finteraction,
+    pTime,
+    pGroup,
+    pInteraction,
+    etaTime,
+    etaGroup,
+    etaInteraction,
+    excluded,
+  });
+
+  return {
+    Ftime,
+    Fgroup,
+    Finteraction,
+    pTime,
+    pGroup,
+    pInteraction,
+    etaTime,
+    etaGroup,
+    etaInteraction,
+    excludedSubjects: excluded,
+    html,
+  };
+}
+
+function renderRMAnovaHTML({
+  groups,
+  times,
+  cellMeans,
+  dfTime,
+  dfGroup,
+  dfInteraction,
+  dfError,
+  Ftime,
+  Fgroup,
+  Finteraction,
+  pTime,
+  pGroup,
+  pInteraction,
+  etaTime,
+  etaGroup,
+  etaInteraction,
+  excluded,
+}) {
+  return (
+    <div
+      style={{
+        fontSize: "12px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+      }}
+    >
+      <b>Repeated Measures ANOVA</b>
+
+      {excluded > 0 && (
+        <div style={{ color: "#a00" }}>
+          {excluded} subject(s) excluded due to incomplete data
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: "40px" }}>
+        <StatBlock
+          title="Time Effect"
+          df1={dfTime}
+          df2={dfError}
+          F={Ftime}
+          p={pTime}
+          eta={etaTime}
+        />
+        <StatBlock
+          title="Group Effect"
+          df1={dfGroup}
+          df2={dfError}
+          F={Fgroup}
+          p={pGroup}
+          eta={etaGroup}
+        />
+      </div>
+
+      <hr />
+
+      <StatBlock
+        title="Group × Time Interaction"
+        df1={dfInteraction}
+        df2={dfError}
+        F={Finteraction}
+        p={pInteraction}
+        eta={etaInteraction}
+        centered
+      />
+
+      <hr />
+
+      <b>Group × Time Means</b>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, 1fr)",
+          columnGap: "40px",
+          rowGap: "12px",
+        }}
+      >
+        {groups.map((g, gi) => (
+          <div key={g}>
+            <b>{g}</b>
+            <div style={{ paddingLeft: "1em" }}>
+              {times.map((t, ti) => (
+                <div key={ti}>
+                  <b>{t}:</b> {cellMeans[gi][ti].toFixed(2)}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StatBlock({ title, df1, df2, F, p, eta, centered }) {
+  return (
+    <div style={{ textAlign: centered ? "center" : "left" }}>
+      <b>{title}</b>
+      <div>
+        F({df1}, {df2}) = {F.toFixed(2)}
+      </div>
+      <div>p = {p.toFixed(4)}</div>
+      <div>η² = {eta.toFixed(3)}</div>
+    </div>
+  );
+}
+
+export function getLineChartData(raw, valueVar, groupVar, timeVar, idVar) {
+  if (!raw || !Array.isArray(raw)) return { meanData: [], participantData: [] };
+
+  if (!valueVar || !groupVar || !timeVar) {
+    throw new Error("Debe indicar valueVar, groupVar y timeVar");
+  }
+
+  const table = aq.from(raw);
+
+  // Agrupar por participante
+  const groupedById = table
+    .groupby(idVar)
+    .select(idVar, groupVar, timeVar, valueVar)
+    .objects({ grouped: "entries" });
+
+  const participantData = groupedById.map(([id, rows]) => {
+    const values = rows
+      .map((r) => ({
+        timestamp: String(r[timeVar]),
+        value: r[valueVar],
+      }))
+      .sort((a, b) => compareTimestamps(a.timestamp, b.timestamp));
+
+    const group = rows.length > 0 ? rows[0][groupVar] : null;
+
+    return { id, group, values };
+  });
+
+  // Agregar medias, desviaciones y conteo
+  const aggregated = table
+    .groupby(groupVar, timeVar)
+    .rollup({
+      mean: aq.op.mean(valueVar),
+      std: aq.op.stdev(valueVar),
+      count: aq.op.count(),
+    })
+    .objects();
+
+  const groupsMap = new Map();
+  for (const row of aggregated) {
+    const g = row[groupVar];
+    const t = String(row[timeVar]);
+    const mean = row.mean;
+    const std = row.std;
+    const n = row.count;
+
+    // IC95% usando t de Student
+    const tCrit = jStat.studentt.inv(0.975, n - 1); // 95% CI
+    const se = std / Math.sqrt(n);
+    const ci95 = { lower: mean - tCrit * se, upper: mean + tCrit * se };
+
+    const v = { mean, std, count: n, ci95 };
+
+    if (!groupsMap.has(g)) groupsMap.set(g, []);
+    groupsMap.get(g).push({ time: t, value: v });
+  }
+
+  const meanData = [...groupsMap.entries()].map(([group, values]) => ({
+    group,
+    values: values.sort((a, b) => compareTimestamps(a.time, b.time)),
+  }));
+
+  const allTimes = [
+    ...new Set(
+      participantData.flatMap((p) => p.values.map((v) => v.timestamp)).sort()
+    ),
+  ];
+
+  // Aquí se llama a la función de RM-ANOVA (debes tenerla implementada)
+  const rmAnova = runRMAnova(participantData, allTimes);
+
+  return { meanData, participantData, rmAnova };
+}

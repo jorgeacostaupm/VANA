@@ -1,0 +1,58 @@
+:root {
+  --primary-color: #1677ff;
+  --warning-color: #f5dd07;
+  --axis-color: #333;
+  --background-color: #fff;
+  --axis-font-size: small;
+}
+
+.title {
+  margin-left: 20px;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.fullScreenLayout {
+  min-height: 100vh;
+  width: 100vw;
+  background: #f0f2f5;
+  overflow: hidden;
+}
+
+.bar {
+  background-color: var(--primary-color);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 60px;
+  overflow: hidden;
+}
+
+.chartTitle {
+  font-size: 16px;
+  font-weight: bold;
+  fill: var(--axis-color);
+}
+
+.panelBox {
+  background-color: white;
+  border-radius: 8px;
+  padding: 5px 5px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.panelBoxEvolution {
+  border: 3px solid white;
+  border-radius: 8px;
+  padding: 16px 20px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.popoverMenu {
+  max-width: 400px;
+  padding: 5px;
+}

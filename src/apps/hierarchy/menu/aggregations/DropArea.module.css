@@ -1,0 +1,48 @@
+.dropContainer {
+  border-width: 3px;
+  border-style: dashed;
+  border-radius: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  padding: 5px;
+  gap: 3px;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  min-height: 53px;
+  box-sizing: border-box;
+}
+
+.dropContainerActive {
+  border-color: #3d6bff;
+  background-color: rgba(61, 107, 255, 0.05);
+}
+
+.attributeItem {
+  flex: 0 1 auto;
+  text-align: center;
+  cursor: grab;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 0.75rem;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.copyAttributeItem {
+  flex: 0 1 auto;
+  text-align: center;
+  cursor: grab;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 0.75rem;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  justify-content: space-between;
+}
+
+.attributeItem:active {
+  cursor: grabbing;
+  opacity: 0.6;
+}

@@ -1,0 +1,101 @@
+/* General */
+
+.tooltip {
+  font-size: 18px;
+  background: #fff;
+  border: 1px solid #000000;
+  border-radius: 4px;
+  pointer-events: none;
+  position: fixed;
+  padding: 5px;
+  transition: opacity 0.3s;
+  z-index: 100;
+  max-width: 500px;
+}
+
+.contextTooltip {
+  position: fixed;
+  pointer-events: auto;
+}
+
+.legendTitle {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.tick {
+  cursor: default;
+}
+
+.highlight {
+  opacity: 1 !important;
+  display: block !important;
+}
+
+.cross {
+  text-decoration: line-through;
+}
+
+.hide {
+  display: none;
+}
+
+.tmp-hide {
+  display: none;
+}
+
+.blur {
+  opacity: 0.4;
+}
+
+.tmp-blur {
+  opacity: 0.4;
+}
+
+.tmp-noblur {
+  opacity: 1;
+}
+
+/* Hierarchy */
+
+.selectedNode {
+  fill: #2ca02c;
+  stroke: #000;
+}
+
+.highlight-sibling .showCircle {
+  stroke: #000000;
+  stroke-width: 6px;
+}
+
+/* Ranking */
+
+.infoTooltip {
+  flex-direction: row;
+  white-space: nowrap;
+}
+
+.descTooltip {
+  max-width: 30vw;
+}
+
+/* Scatterplot */
+
+.hiddenDot {
+  r: 1px;
+  fill: #000;
+  fill-opacity: 1;
+}
+
+.selected {
+  display: block;
+  opacity: 1;
+  stroke: #000;
+  stroke-width: 2.5;
+}
+
+/* Density */
+
+/* Histogram */
+
+/* Swarmplot */
