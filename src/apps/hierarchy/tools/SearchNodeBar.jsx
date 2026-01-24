@@ -29,7 +29,7 @@ const SearchNodeBar = () => {
 
     if (!parent.isShown) {
       await dispatch(
-        toggleAttribute({ attributeID: parent.id, fromFocus: true })
+        toggleAttribute({ attributeID: parent.id, fromFocus: true }),
       ).unwrap();
     }
 
@@ -64,7 +64,7 @@ const SearchNodeBar = () => {
       return;
     }
     const matches = attributes.filter((node) =>
-      node.name?.toLowerCase().includes(query)
+      node.name?.toLowerCase().includes(query),
     );
     setResults(matches);
     setShowResults(matches.length > 0);
@@ -113,12 +113,12 @@ const SearchNodeBar = () => {
         onChange={(e) => handleSearch(e.target.value)}
         onFocus={handleFocus}
         onKeyDown={handleEnter}
-        prefix={<SearchOutlined style={{ color: "#1677ff" }} />}
+        prefix={<SearchOutlined style={{ color: "var(--primary-color)" }} />}
         style={{
           height: "3rem",
           fontSize: "1rem",
           borderRadius: "8px",
-          boxShadow: showResults ? "0 0 4px #1677ff" : "none",
+          boxShadow: showResults ? "0 0 4px var(--primary-color)" : "none",
         }}
       />
 
@@ -157,7 +157,9 @@ const SearchNodeBar = () => {
                   (e.currentTarget.style.backgroundColor = "transparent")
                 }
               >
-                <SearchOutlined style={{ color: "#1677ff", marginRight: 8 }} />
+                <SearchOutlined
+                  style={{ color: "var(--primary-color)", marginRight: 8 }}
+                />
                 {node.name}
               </List.Item>
             )}

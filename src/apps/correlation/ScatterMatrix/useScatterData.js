@@ -24,7 +24,7 @@ export default function useScatterData(isSync = true, params) {
       });
       setData(null);
     }
-  }, [isSync, params]);
+  }, [isSync, params, selection]);
 
   return [data, setData];
 }

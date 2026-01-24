@@ -10,12 +10,8 @@ import { DATASETS } from "@/utils/Constants";
 import { pubsub } from "@/utils/pubsub";
 const { publish } = pubsub;
 
-const idVar = "pseudon_id";
-const groupVar = "site";
-const timeVar = "visit";
-
 const env = import.meta?.env?.MODE || process.env.NODE_ENV || "dev";
-const { dataPath, hierarchyPath, descriptionsPath } =
+const { dataPath, hierarchyPath, descriptionsPath, idVar, groupVar, timeVar } =
   env === "production" ? DATASETS.prod : DATASETS.dev;
 
 export default async function loadTestData(dispatch) {
@@ -26,7 +22,7 @@ export default async function loadTestData(dispatch) {
         data,
         isGenerateHierarchy: true,
         filename: dataPath,
-      })
+      }),
     );
 
     let hierarchy = await api.fetchHierarchy(hierarchyPath);
@@ -37,7 +33,7 @@ export default async function loadTestData(dispatch) {
       updateDescriptions({
         descriptions,
         filename: descriptionsPath,
-      })
+      }),
     );
 
     dispatch(setIdVar(idVar));

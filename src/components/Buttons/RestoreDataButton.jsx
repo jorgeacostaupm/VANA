@@ -7,8 +7,8 @@ import buttonStyles from "@/utils/Buttons.module.css";
 import { generateFileName } from "@/utils/functions";
 import { ORDER_VARIABLE } from "@/utils/Constants";
 import BarButton from "@/utils/BarButton";
-import { updateData } from "@/store/async/dataAsyncReducers";
 import { setQuarantineData, selectNavioVars } from "@/store/slices/cantabSlice";
+import { setDataframe } from "@/store/slices/dataSlice";
 
 export default function RestoreDataButton() {
   const dispatch = useDispatch();
@@ -25,18 +25,12 @@ export default function RestoreDataButton() {
     const filteredData = quarantineData.filter((item) =>
       ids.includes(item[ORDER_VARIABLE])
     );
-    const filteredQuarantineData = quarantineData.filter(
+    const newQuarantineData = quarantineData.filter(
       (item) => !ids.includes(item[ORDER_VARIABLE])
     );
-    const newData = [...filteredData, ...dataframe];
-    dispatch(
-      updateData({
-        data: newData,
-        isGenerateHierarchy: false,
-        filename: "Test Data",
-      })
-    );
-    dispatch(setQuarantineData(filteredQuarantineData));
+    const newDataframe = [...filteredData, ...dataframe];
+    dispatch(setDataframe(newDataframe));
+    dispatch(setQuarantineData(newQuarantineData));
   }
 
   return (

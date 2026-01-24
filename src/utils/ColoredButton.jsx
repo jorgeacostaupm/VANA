@@ -15,7 +15,7 @@ export default function ColoredButton({
     <AutoCloseTooltip title={title} placement={placement}>
       <Button
         shape={shape}
-        className={buttonStyles.coloredButton}
+        className={buttonStyles.myButton}
         icon={icon}
         onClick={onClick}
         disabled={disabled}

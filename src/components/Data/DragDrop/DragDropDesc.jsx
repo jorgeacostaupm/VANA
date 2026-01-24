@@ -7,7 +7,9 @@ import styles from "../Data.module.css";
 import ColoredButton from "@/utils/ColoredButton";
 import { updateDescriptions } from "@/store/async/metaAsyncReducers";
 
-const ACCEPTED_FORMATS = ".csv";
+const ACCEPTED_FORMATS = {
+  "text/csv": [".csv"],
+};
 
 export default function DragDropDesc() {
   const dispatch = useDispatch();
@@ -58,9 +60,7 @@ export default function DragDropDesc() {
               {filename || "Click or drop a CSV file"}
             </span>
             {!filename && (
-              <span className={styles.subtitle}>
-                Accepted: {ACCEPTED_FORMATS}
-              </span>
+              <span className={styles.subtitle}>Accepted: .csv</span>
             )}
           </div>
         )}

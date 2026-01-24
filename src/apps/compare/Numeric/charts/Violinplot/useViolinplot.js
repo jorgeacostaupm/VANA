@@ -35,11 +35,10 @@ export default function useViolinplot({ chartRef, legendRef, data }) {
       .append("g")
       .attr("transform", `translate(${numMargin.left},${numMargin.top})`);
 
-    let tmp = deepCopy(groups).sort();
-    const color = d3.scaleOrdinal().domain(tmp).range(colorScheme);
+    const color = d3.scaleOrdinal().domain(groups).range(colorScheme);
 
     // X for groups
-    tmp = deepCopy(selectionGroups).sort();
+    let tmp = deepCopy(selectionGroups).sort();
     const x = d3.scaleBand().domain(tmp).range([0, chartWidth]).padding(0.4);
 
     const minVal = d3.min(data, (d) => d.value);

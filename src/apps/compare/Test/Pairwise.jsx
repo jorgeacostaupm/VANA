@@ -57,7 +57,7 @@ export default function Pairwise({ id, variable, test, remove }) {
   return (
     <div className={styles.viewContainer}>
       <ChartBar
-        title={`${variable} Effect Sizes`}
+        title={`Effect Sizes - ${variable}`}
         info={data?.descriptionJSX}
         svgIDs={[id]}
         remove={remove}

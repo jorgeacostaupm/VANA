@@ -15,9 +15,9 @@ const defaultConfig = {
   showStds: false,
   showCIs: false,
   showComplete: true,
-  meanPointSize: 5,
+  meanPointSize: 8,
   subjectPointSize: 3,
-  meanStrokeWidth: 3,
+  meanStrokeWidth: 5,
   subjectStrokeWidth: 1,
 };
 
@@ -44,7 +44,7 @@ export default function LineChart({ id, variable, remove }) {
 
   return (
     <ViewContainer
-      title={`${variable} - Distribution`}
+      title={`Evolution - ${variable}`}
       svgIDs={[id, `${id}-legend`]}
       info={data?.rmAnova?.html}
       remove={remove}

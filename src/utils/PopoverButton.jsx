@@ -53,7 +53,7 @@ export default function PopoverButton({
         mouseLeaveDelay={0}
       >
         <span onMouseEnter={showTooltip} style={{ display: "inline-block" }}>
-          <Button size="small" className={buttonStyles.barButton} icon={icon} />
+          <Button size="small" className={buttonStyles.myButton} icon={icon} />
         </span>
       </Tooltip>
     </Popover>

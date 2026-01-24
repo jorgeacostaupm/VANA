@@ -16,11 +16,17 @@ export const DATASETS = {
     dataPath: "./vis/csv/testData.csv",
     hierarchyPath: "./vis/hierarchies/testDataHier.json",
     descriptionsPath: "./vis/descriptions/ai-mind variable descriptions.csv",
+    idVar: "id",
+    groupVar: "Country",
+    timeVar: "Visit Name",
   },
   dev: {
     dataPath: "./vis/csv/private/ai-mind data Sept 2025.csv",
     hierarchyPath: "./vis/hierarchies/ai-mind hierarchy.json",
     descriptionsPath: "./vis/descriptions/ai-mind variable descriptions.csv",
+    idVar: "pseudon_id",
+    groupVar: "site",
+    timeVar: "visit",
   },
 };
 

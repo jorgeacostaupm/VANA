@@ -22,6 +22,7 @@ import {
   updateAttribute,
   updateDescriptions,
 } from "../async/metaAsyncReducers";
+import { nullsToQuarantine } from "../async/cantabAsyncReducers";
 const { publish } = pubsub;
 
 export const setTimeVar = createAsyncThunk(
@@ -74,7 +75,7 @@ const initialState = {
 
   hasEmptyValues: false,
 
-  quarantineData: null,
+  quarantineData: [],
   quarantineSelection: null,
   filteredData: null,
 
@@ -110,11 +111,9 @@ const cantabSlice = createSlice({
     setInit: (state, action) => {
       state.init = action.payload;
     },
-
     setFilteredData: (state, action) => {
       state.filteredData = action.payload;
     },
-
     setInitQuarantine: (state, action) => {
       state.initQuarantine = action.payload;
     },
@@ -125,18 +124,15 @@ const cantabSlice = createSlice({
     setQuarantineSelection: (state, action) => {
       state.quarantineSelection = action.payload;
     },
-
     setAttrWidth: (state, action) => {
       state.attrWidth = action.payload;
     },
-
     setScenarioRunResults: (state, action) => {
       state.scenarioRunResults = action.payload;
     },
     setSelectedIds: (state, action) => {
       state.selectedIds = action.payload;
     },
-
     updateConfig: (state, action) => {
       const { field, value } = action.payload;
       state.config = { ...state.config, [field]: value };
@@ -179,11 +175,30 @@ const cantabSlice = createSlice({
       });
 
     builder
+      .addCase(nullsToQuarantine.fulfilled, (state, action) => {
+        const quarantineData = action.payload.quarantineData;
+        console.log(quarantineData);
+        state.quarantineData = [...state.quarantineData, ...quarantineData];
+        state.quarantineSelection = [
+          ...state.quarantineData,
+          ...quarantineData,
+        ];
+      })
+      .addCase(nullsToQuarantine.rejected, (_, action) => {
+        const configuration = {
+          message: "Error setting Quarantine data",
+          description: action.payload,
+          type: "error",
+        };
+        publish("notification", configuration);
+      });
+
+    builder
       .addCase(updateData.fulfilled, (state, action) => {
         const { varTypes } = action.payload;
         state.varTypes = varTypes;
 
-        state.quarantineData = null;
+        state.quarantineData = [];
         state.timeVar = null;
         state.groupVar = null;
         state.idVar = null;

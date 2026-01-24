@@ -112,24 +112,27 @@ export function renderLegend(legend, groups, color) {
 
   const legendGroup = legend.append("g").attr("class", "legend-group");
 
-  groups.forEach((d, i) => {
-    const y = i * lineHeight + circleSize * 2;
+  groups
+    .sort()
+    .reverse()
+    .forEach((d, i) => {
+      const y = i * lineHeight + circleSize * 2;
 
-    legendGroup
-      .append("circle")
-      .attr("class", "legend-circle")
-      .attr("cx", circleSize + 10)
-      .attr("cy", y)
-      .attr("r", circleSize)
-      .style("fill", color(d));
+      legendGroup
+        .append("circle")
+        .attr("class", "legend-circle")
+        .attr("cx", circleSize + 10)
+        .attr("cy", y)
+        .attr("r", circleSize)
+        .style("fill", color(d));
 
-    legendGroup
-      .append("text")
-      .attr("class", "legend")
-      .attr("x", circleSize * 2 + 15)
-      .attr("y", y + 4)
-      .text(d);
-  });
+      legendGroup
+        .append("text")
+        .attr("class", "legend")
+        .attr("x", circleSize * 2 + 15)
+        .attr("y", y + 4)
+        .text(d);
+    });
 
   const bbox = legendGroup.node().getBBox();
 

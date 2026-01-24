@@ -16,7 +16,6 @@ import ColoredButton from "@/utils/ColoredButton";
 
 const { Text } = Typography;
 
-// Configuración correcta de tipos aceptados usando MIME types
 const ACCEPTED_FORMATS = {
   "text/csv": [".csv"],
   "text/tab-separated-values": [".tsv"],
@@ -38,7 +37,7 @@ export default function DragDropData() {
           filename,
           data: parsedData,
           isGenerateHierarchy: generateHierarchy,
-        })
+        }),
       );
     }
   };

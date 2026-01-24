@@ -36,7 +36,7 @@ export default function useCorrelationMatrixData(
       });
       setData(null);
     }
-  }, [isSync, params]);
+  }, [isSync, params, selection]);
 
   return [data, setData];
 }

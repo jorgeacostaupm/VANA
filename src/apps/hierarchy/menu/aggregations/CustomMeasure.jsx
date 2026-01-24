@@ -72,40 +72,47 @@ const CustomMeasure = ({ formula }) => {
 
   return (
     <>
-      {/* Header con help */}
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
-          marginBottom: 6,
+          flexDirection: "column",
+          gap: 8,
         }}
       >
-        <Text strong>Aggregation Formula:</Text>
-        <PopoverButton
-          title="Help"
-          content={CUST_HELP}
-          placement="left"
-          icon={<QuestionCircleOutlined />}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: 6,
+          }}
+        >
+          <Text strong>Custom Formula:</Text>
+          <PopoverButton
+            title="Help"
+            content={CUST_HELP}
+            placement="left"
+            icon={<QuestionCircleOutlined />}
+          />
+        </div>
+
+        <textarea
+          ref={textRef}
+          value={formulaText}
+          onChange={handleInputChange}
+          spellCheck={false}
+          autoCorrect="false"
+          placeholder="Add an aggregation formula"
+          style={{
+            width: "100%",
+            minHeight: "50px",
+            border: "1px solid #d1d5db",
+            borderRadius: "0.375rem",
+            padding: "0.5rem",
+            resize: "vertical",
+            whiteSpace: "pre-line",
+          }}
         />
       </div>
-
-      {/* Textarea para la fórmula */}
-      <textarea
-        ref={textRef}
-        value={formulaText}
-        onChange={handleInputChange}
-        spellCheck={false}
-        autoCorrect="false"
-        placeholder="Add an aggregation formula"
-        style={{
-          width: "100%",
-          height: 100,
-          border: "1px solid #d1d5db",
-          borderRadius: 6,
-          padding: 8,
-          resize: "vertical",
-        }}
-      />
 
       {errors?.info?.formula && (
         <div style={{ color: "red", marginTop: 4 }}>{errors.info.formula}</div>
@@ -113,34 +120,40 @@ const CustomMeasure = ({ formula }) => {
 
       <SaveButton />
 
-      <Text strong>Available Variables:</Text>
-      <div style={{ position: "relative", margin: "6px 0" }}>
-        <SearchOutlined
-          style={{
-            position: "absolute",
-            left: 10,
-            top: "50%",
-            transform: "translateY(-50%)",
-            color: "rgba(0,0,0,0.45)",
-            fontSize: 16,
-          }}
-        />
-        <input
-          type="text"
-          placeholder="Search attributes..."
-          value={searchText}
-          onChange={(e) => updateSearch(e.target.value.toLowerCase())}
-          style={{
-            width: "100%",
-            padding: "6px 10px 6px 32px",
-            borderRadius: 6,
-            border: "1px solid var(--primary-color)",
-            fontSize: 14,
-          }}
-        />
-      </div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}
+      >
+        <Text strong>Available Variables:</Text>
+        <div style={{ position: "relative", margin: "6px 0" }}>
+          <SearchOutlined
+            style={{
+              position: "absolute",
+              left: 10,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "rgba(0,0,0,0.45)",
+              fontSize: 16,
+            }}
+          />
+          <input
+            type="text"
+            placeholder="Search attributes..."
+            value={searchText}
+            onChange={(e) => updateSearch(e.target.value.toLowerCase())}
+            style={{
+              width: "100%",
+              padding: "6px 10px 6px 32px",
+              borderRadius: 6,
+              border: "1px solid var(--primary-color)",
+              fontSize: 14,
+            }}
+          />
+        </div>
 
-      <div>
         <div className={styles.dropContainer}>
           {showNodes.map((n) => (
             <AttributePaste key={n.name} name={n.name} />

@@ -236,7 +236,7 @@ export default function PointRange({ id, variable, test, remove }) {
   return (
     <div className={styles.viewContainer}>
       <ChartBar
-        title={variable + " - " + test}
+        title={`${test} - ${variable}`}
         info={result?.descriptionJSX}
         svgIDs={[id]}
         remove={remove}

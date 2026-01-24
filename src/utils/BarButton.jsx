@@ -7,7 +7,7 @@ export default function BarButton({
   icon,
   onClick,
   disabled,
-  className = buttonStyles.barButton,
+  className = buttonStyles.myButton,
 }) {
   return (
     <AutoCloseTooltip title={title}>

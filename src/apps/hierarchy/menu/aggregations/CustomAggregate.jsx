@@ -83,36 +83,44 @@ const CustomAggregate = ({ nodes, formula, save }) => {
     <>
       <div
         style={{
-          width: "100%",
           display: "flex",
-          justifyContent: "space-between",
+          flexDirection: "column",
+          gap: 8,
         }}
       >
-        <Text strong>Aggregation Formula:</Text>
-        <PopoverButton
-          title={"Help"}
-          content={CUST_HELP}
-          placement="left"
-          icon={<QuestionCircleOutlined></QuestionCircleOutlined>}
-        ></PopoverButton>
+        <div
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <Text strong>Aggregation Formula:</Text>
+          <PopoverButton
+            title={"Help"}
+            content={CUST_HELP}
+            placement="left"
+            icon={<QuestionCircleOutlined></QuestionCircleOutlined>}
+          ></PopoverButton>
+        </div>
+        <textarea
+          ref={textRef}
+          value={formulaText}
+          style={{
+            width: "100%",
+            minHeight: "120px",
+            border: "1px solid #d1d5db",
+            borderRadius: "0.375rem",
+            padding: "0.5rem",
+            resize: "vertical",
+            whiteSpace: "pre-line",
+          }}
+          onChange={handleInputChange}
+          spellCheck={"false"}
+          autoCorrect={"false"}
+          placeholder={`Add an aggregation equation or formula.\n\n\nClick 'Help' for more information.`}
+        />
       </div>
-      <textarea
-        ref={textRef}
-        value={formulaText}
-        style={{
-          width: "100%",
-          height: "100px",
-          border: "1px solid #d1d5db",
-          borderRadius: "0.375rem",
-          padding: "0.5rem",
-          resize: "vertical",
-          whiteSpace: "pre-line",
-        }}
-        onChange={handleInputChange}
-        spellCheck={"false"}
-        autoCorrect={"false"}
-        placeholder={`Add an aggregation equation or formula.\n\n\nClick 'Help' for more information.`}
-      />
       <div
         style={{
           display: "flex",
@@ -126,7 +134,13 @@ const CustomAggregate = ({ nodes, formula, save }) => {
 
       {save}
 
-      <div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}
+      >
         <Text strong>Available Variables:</Text>
         <div className={styles.dropContainer}>
           {nodes.map((n) => {

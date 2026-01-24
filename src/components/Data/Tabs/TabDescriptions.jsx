@@ -45,7 +45,7 @@ const Info = () => {
 
       <div>
         <Text strong style={{ color: "var(--primary-color)" }}>
-          Variables Described:
+          Variables with description:
         </Text>{" "}
         <Text>{attributes.sort().join(", ")}</Text>
       </div>

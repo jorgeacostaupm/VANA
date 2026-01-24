@@ -1,9 +1,10 @@
 /* General */
 
 .tooltip {
+  color: var(--primary-color);
   font-size: 18px;
   background: #fff;
-  border: 1px solid #000000;
+  border: 1px solid var(--primary-color);
   border-radius: 4px;
   pointer-events: none;
   position: fixed;

@@ -236,7 +236,7 @@ export default class D3HierarchyEditor {
             .attr(
               "transform",
               (d) =>
-                `translate(${source.y0 ?? source.y}, ${source.x0 ?? source.x})`
+                `translate(${source.y0 ?? source.y}, ${source.x0 ?? source.x})`,
             )
             .attr("fill-opacity", 0)
             .attr("stroke-opacity", 0);
@@ -318,8 +318,8 @@ export default class D3HierarchyEditor {
               node.id === graph.root.id
                 ? -30
                 : node.children?.length >= 2
-                ? 0
-                : 25
+                  ? 0
+                  : 25,
             )
             .attr("y", (d) => (d.id !== graph.root.id && d.children ? -25 : 0))
             .attr("text-anchor", "middle")
@@ -327,7 +327,7 @@ export default class D3HierarchyEditor {
             .text((node) =>
               node.data.name.length < maxString
                 ? node.data.name
-                : node.data.name.slice(0, maxString - 1) + "..."
+                : node.data.name.slice(0, maxString - 1) + "...",
             )
             .attr("stroke-linejoin", "round")
             .attr("stroke-width", 2)
@@ -343,7 +343,7 @@ export default class D3HierarchyEditor {
             .attr("transform", (d) => `translate(${source.y}, ${source.x})`)
             .attr("fill-opacity", 0)
             .attr("stroke-opacity", 0)
-            .remove()
+            .remove(),
       );
 
     gnode
@@ -426,7 +426,7 @@ export default class D3HierarchyEditor {
 
           fixTooltipToNode(
             d3.select(this), // ⬅️ el g.circleG
-            graph.tooltip
+            graph.tooltip,
           );
         }, 700);
       })
@@ -532,7 +532,7 @@ export default class D3HierarchyEditor {
             graph._dragSiblingMaxY = Math.max(...ys) + spacing;
 
             graph._dragOriginalIndex = graph._dragSiblingXPositions.indexOf(
-              node.x
+              node.x,
             );
             graph._originalX = node.x;
             graph._currentHoverIndex = graph._dragOriginalIndex;
@@ -542,7 +542,7 @@ export default class D3HierarchyEditor {
         graph.svg.style("cursor", "grabbing");
 
         const movingNodes = [node].flatMap((n) =>
-          n.descendants ? n.descendants() : [n]
+          n.descendants ? n.descendants() : [n],
         );
 
         movingNodes.forEach((d) => {
@@ -583,7 +583,7 @@ export default class D3HierarchyEditor {
             if (!parent || !parent.children) return;
 
             const siblings = parent.children.filter(
-              (sib) => sib.id !== node.id
+              (sib) => sib.id !== node.id,
             );
 
             if (siblings.length === 0) return;
@@ -643,7 +643,7 @@ export default class D3HierarchyEditor {
               if (moveLeft || moveRight) {
                 const referenceIndex = moveLeft ? i + 1 : i - 1;
                 const space = Math.abs(
-                  childNode.x - graph._dragSiblingXPositions[referenceIndex]
+                  childNode.x - graph._dragSiblingXPositions[referenceIndex],
                 );
 
                 subtree.forEach((d) => {
@@ -661,7 +661,7 @@ export default class D3HierarchyEditor {
                   .filter(
                     (l) =>
                       subtree.some((n) => n.id === l.source.id) ||
-                      subtree.some((n) => n.id === l.target.id)
+                      subtree.some((n) => n.id === l.target.id),
                   )
                   .attr("d", (l) => curveSShape(l));
               } else {
@@ -683,7 +683,7 @@ export default class D3HierarchyEditor {
                   .filter(
                     (l) =>
                       subtree.some((n) => n.id === l.source.id) ||
-                      subtree.some((n) => n.id === l.target.id)
+                      subtree.some((n) => n.id === l.target.id),
                   )
                   .attr("d", (l) => curveSShape(l));
               }
@@ -696,7 +696,7 @@ export default class D3HierarchyEditor {
               .selectAll(".circleG")
               .classed("highlight-sibling", false)
               .filter(
-                (d) => d.id === leftSibling?.id || d.id === rightSibling?.id
+                (d) => d.id === leftSibling?.id || d.id === rightSibling?.id,
               )
               .classed("highlight-sibling", true);
           }
@@ -753,7 +753,7 @@ export default class D3HierarchyEditor {
       : [node];
 
     const descendants = nodesToMove.flatMap((n) =>
-      n.descendants ? n.descendants() : [n]
+      n.descendants ? n.descendants() : [n],
     );
 
     if (isMultiSelect) {
@@ -762,7 +762,7 @@ export default class D3HierarchyEditor {
         .selectAll(".circleG")
         .filter(
           (d) =>
-            descendants.some((sd) => sd.id === d.id) && d.id !== node.data.id
+            descendants.some((sd) => sd.id === d.id) && d.id !== node.data.id,
         )
         .style("display", "none");
 
@@ -826,7 +826,7 @@ export default class D3HierarchyEditor {
     }
 
     this.dispatcher(
-      toggleAttribute({ attributeID: node.data.id, fromFocus: false })
+      toggleAttribute({ attributeID: node.data.id, fromFocus: false }),
     );
     this.drawHierarchy(node);
     this.setNavioNodes();
@@ -849,7 +849,7 @@ export default class D3HierarchyEditor {
       .data();
 
     const descendants = nodesToMove.flatMap((n) =>
-      n.descendants ? n.descendants() : [n]
+      n.descendants ? n.descendants() : [n],
     );
 
     this.main
@@ -901,7 +901,7 @@ export default class D3HierarchyEditor {
         sourceID,
         parentID,
         newIndex,
-      })
+      }),
     );
   }
 
@@ -937,7 +937,7 @@ export default class D3HierarchyEditor {
         sourceID: sourceIDs[0],
         targetID: targetID,
         recover: true,
-      })
+      }),
     );
   }
 
@@ -950,10 +950,10 @@ export default class D3HierarchyEditor {
       .data();
 
     const roots = selectedNodes.filter(
-      (d) => !selectedNodes.includes(d.parent)
+      (d) => !selectedNodes.includes(d.parent),
     );
     const orphans = selectedNodes.filter(
-      (d) => d.parent && !selectedNodes.includes(d.parent)
+      (d) => d.parent && !selectedNodes.includes(d.parent),
     );
 
     const mods = [...roots];
@@ -962,7 +962,7 @@ export default class D3HierarchyEditor {
     });
 
     const toApply = mods.filter(
-      (d) => d.id !== parent && !d.descendants().some((nd) => nd.id === parent)
+      (d) => d.id !== parent && !d.descendants().some((nd) => nd.id === parent),
     );
 
     if (toApply.length === 0) return;
@@ -973,7 +973,7 @@ export default class D3HierarchyEditor {
           sourceID: d.id,
           targetID: parent,
           recover: false,
-        })
+        }),
       );
     });
 
@@ -1123,10 +1123,10 @@ export default class D3HierarchyEditor {
       .data();
 
     const roots = selectedNodes.filter(
-      (d) => !selectedNodes.includes(d.parent)
+      (d) => !selectedNodes.includes(d.parent),
     );
     const orphans = selectedNodes.filter(
-      (d) => d.parent && !selectedNodes.includes(d.parent)
+      (d) => d.parent && !selectedNodes.includes(d.parent),
     );
 
     const mods = [...roots];
@@ -1137,7 +1137,7 @@ export default class D3HierarchyEditor {
     const childIDs = mods
       .filter(
         (d) =>
-          d.id !== parent && !d.descendants().some((nd) => nd.id === parent)
+          d.id !== parent && !d.descendants().some((nd) => nd.id === parent),
       )
       .map((d) => d.id);
 
@@ -1149,7 +1149,7 @@ export default class D3HierarchyEditor {
         childIDs,
         parentID: parent,
         sourceID: source,
-      })
+      }),
     );
     this.svg.selectAll(".showCircle").classed("selectedNode", false);
   }
@@ -1174,7 +1174,7 @@ export default class D3HierarchyEditor {
       .duration(transitionDuration)
       .call(
         this.zoomBehaviour.transform,
-        d3.zoomIdentity.translate(tx, ty).scale(scale)
+        d3.zoomIdentity.translate(tx, ty).scale(scale),
       )
       .on("end", () => {
         const nodeG = this.svg

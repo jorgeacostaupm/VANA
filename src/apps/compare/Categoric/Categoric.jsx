@@ -28,7 +28,7 @@ export default function Categoric({ id, variable, remove }) {
 
   return (
     <ViewContainer
-      title={`${variable} - Distribution`}
+      title={`Distribution - ${variable}`}
       svgIDs={[id, `${id}-legend`]}
       info={info}
       remove={remove}

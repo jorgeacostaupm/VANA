@@ -21,7 +21,7 @@ export const generateColumn = createAsyncThunk(
       const data =
         dt && dt.length > 0
           ? table.derive({ [colName]: derivedFn }, { drop: false }).objects()
-          : null;
+          : [];
 
       const quarantineData =
         qt && qt.length > 0
@@ -29,7 +29,7 @@ export const generateColumn = createAsyncThunk(
               .from(qt)
               .derive({ [colName]: derivedFn }, { drop: false })
               .objects()
-          : null;
+          : [];
 
       return { data, quarantineData };
     } catch (error) {
@@ -62,11 +62,11 @@ export const generateColumnBatch = createAsyncThunk(
       const data =
         dt && dt.length > 0
           ? table.derive(formated, { drop: false }).objects()
-          : null;
+          : [];
       const quarantineData =
         qt && qt.length > 0
           ? aq.from(qt).derive(formated, { drop: false }).objects()
-          : null;
+          : [];
 
       return { data, quarantineData };
     } catch (error) {

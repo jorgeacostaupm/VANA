@@ -167,7 +167,7 @@ export default function HierarchyEditorContextMenu({ editor }) {
                 className={buttonStyles.borderedButton}
                 onClick={openModal}
               >
-                <NodeCollapseOutlined />
+                <SubnodeOutlined />
               </Button>
             </Tooltip>
           </>

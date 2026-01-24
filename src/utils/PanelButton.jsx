@@ -7,7 +7,7 @@ export default function PanelButton({ title, icon, onClick }) {
     <AutoCloseTooltip title={title}>
       <Button
         size="large"
-        className={buttonStyles.panelButton}
+        className={`${buttonStyles.panelButton} ${buttonStyles.myButton}`}
         icon={icon}
         onClick={onClick}
       />
