@@ -1,16 +1,49 @@
 # VANA
 
-VANA (Visual Analytics for Neuropsicological Assesments) is a modular visual analytics environment developed within the AI-Mind project to explore and analyze data from the Cambridge Neuropsychological Test Automated Battery (CANTAB). Designed in close collaboration with clinical researchers, our system adopts a coordinated multiple-view architecture that integrates components for cohort exploration, data wrangling, group comparison, temporal trajectory analysis, and correlation exploration. Importantly, it leverages the hierarchical structure of neuropsychological data to reduce and manage the inherent complexity of such datasets. Through this combination of views, the tool supports intuitive navigation, interactive filtering, and task-specific workflows. By bridging domain-specific needs with a flexible and extensible design, the system advances visual analytics for neuropsicological research and provides a reusable framework for other contexts involving complex tabular datasets.
+Visual Analytics for Neuropsychological Assessments (CANTAB)
 
-Lastest Version: [https://olmo.datsi.fi.upm.es/apache/~jacosta/prototypes/VANA/](https://olmo.datsi.fi.upm.es/apache/~jacosta/prototypes/VANA/)
-Quick Manual: [https://sites.google.com/view/vana-quick-manual/home](https://sites.google.com/view/vana-quick-manual/home)
-Contact: jorge.acosta@upm.es
+## Overview
+VANA is a modular visual analytics environment developed within the AI-Mind project to explore and analyze data from the Cambridge Neuropsychological Test Automated Battery (CANTAB). Built in close collaboration with clinical researchers, the system supports exploratory analysis through coordinated multiple views and a workflow-oriented interface.
 
-## Local Build
+## Key Capabilities
+- Cohort exploration and interactive filtering
+- Data wrangling and preprocessing workflows
+- Group comparison and temporal trajectory analysis
+- Correlation exploration across measures
+- Hierarchical navigation to manage complex neuropsychological datasets
 
-To run this tool locally you will need to install node on your computer.
+## Tech Stack
+- React + Vite
+- Redux Toolkit
+- Ant Design
+- D3.js
 
-- Clone `https://github.com/jorgeacostaupm/VANA.git`
-- Run `npm run install`.
-- To run locally, run `npm run dev`.
-- Go to [http://localhost:5173/](http://localhost:5173/) to view it in your browser. The page will reload when you make changes.
+## Getting Started
+Requirements
+- Node.js 20+ (CI uses 20)
+
+Install and run
+```bash
+npm install
+npm run dev
+```
+
+Build and preview
+```bash
+npm run build
+npm run preview
+```
+
+## Deployment (GitHub Pages)
+This project is configured for GitHub Pages via GitHub Actions.
+
+Steps
+1. Ensure `vite.config.js` has `base: "/<REPO_NAME>/"`.
+2. In GitHub: `Settings` → `Pages` → `Source` = `GitHub Actions`.
+3. Push to `main`. The workflow in `.github/workflows/deploy.yml` will build and publish `dist`.
+
+The site will be available at:
+`https://<USER>.github.io/<REPO_NAME>/`
+
+## Acknowledgements
+Developed within the AI-Mind project in collaboration with clinical researchers.

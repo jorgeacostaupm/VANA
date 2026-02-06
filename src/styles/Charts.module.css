@@ -1,6 +1,6 @@
 .viewContainer {
   --view-bar-height: 52px;
-  --view-popover-max-height: calc(100% - var(--view-bar-height) - 10px);
+
   position: relative;
   width: 100%;
   height: 100%;
