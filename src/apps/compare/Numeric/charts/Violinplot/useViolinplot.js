@@ -12,6 +12,8 @@ import {
   getNumericDomain,
 } from "../Density/useDensity";
 import useResizeObserver from "@/hooks/useResizeObserver";
+import { CHART_OUTLINE_MUTED } from "@/utils/chartTheme";
+import { attachTickLabelGridHover } from "@/utils/gridInteractions";
 
 export default function useViolinplot({ chartRef, legendRef, data, config }) {
   const dimensions = useResizeObserver(chartRef);
@@ -66,8 +68,9 @@ export default function useViolinplot({ chartRef, legendRef, data, config }) {
       .nice()
       .range([chartHeight, 0]);
 
+    let yGridG = null;
     if (showGrid) {
-      chart
+      yGridG = chart
         .append("g")
         .attr("class", "grid y-grid")
         .call(d3.axisLeft(y).ticks(5).tickSize(-chartWidth).tickFormat(""))
@@ -79,7 +82,14 @@ export default function useViolinplot({ chartRef, legendRef, data, config }) {
       .attr("transform", `translate(0,${chartHeight})`)
       .call(d3.axisBottom(x));
 
-    chart.append("g").call(d3.axisLeft(y));
+    const yAxisG = chart.append("g").call(d3.axisLeft(y).ticks(5));
+
+    if (showGrid && yGridG) {
+      attachTickLabelGridHover({
+        axisGroup: yAxisG,
+        gridGroup: yGridG,
+      });
+    }
 
     const violinWidth = d3
       .scaleLinear()
@@ -115,9 +125,10 @@ export default function useViolinplot({ chartRef, legendRef, data, config }) {
       // Draw violin
       g.append("path")
         .datum(density)
+        .attr("class", "violin")
         .attr("d", area)
         .attr("fill", color(group))
-        .attr("stroke", "grey")
+        .attr("stroke", CHART_OUTLINE_MUTED)
         .attr("transform", `translate(${x.bandwidth() / 2},0)`)
         .on("mouseover", function () {
           tooltip.style("visibility", "visible").html(
@@ -136,6 +147,11 @@ export default function useViolinplot({ chartRef, legendRef, data, config }) {
 
     if (showLegend !== false) {
       renderLegend(legend, selectionGroups, color);
+    }
+
+    if (showGrid && yGridG) {
+      yGridG.raise();
+      yAxisG.raise();
     }
   }, [data, dimensions, groups, selectionGroups, config]);
 }

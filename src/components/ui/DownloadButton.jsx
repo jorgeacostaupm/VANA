@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Dropdown } from "antd";
 import { DownloadOutlined } from "@ant-design/icons";
 import BarButton from "./BarButton";
+import styles from "./DownloadButton.module.css";
+import { getViewOverlayPosition } from "./popupPosition";
 
 const downloadFormats = [
   { key: "png", label: "PNG (.png)" },
@@ -11,6 +13,39 @@ const downloadFormats = [
 
 export default function DownloadButton({ filename = "chart", svgIds = [] }) {
   const disabled = !svgIds?.length;
+  const [open, setOpen] = useState(false);
+  const [overlayStyle, setOverlayStyle] = useState(undefined);
+  const [isFixedOverlay, setIsFixedOverlay] = useState(false);
+  const triggerRef = useRef(null);
+
+  const updateOverlayPosition = useCallback(() => {
+    const position = getViewOverlayPosition(triggerRef.current);
+    setOverlayStyle(position || undefined);
+    setIsFixedOverlay(Boolean(position));
+  }, []);
+
+  useEffect(() => {
+    if (!open || !isFixedOverlay) return undefined;
+
+    const updatePosition = () => updateOverlayPosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, isFixedOverlay, updateOverlayPosition]);
+
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
+  const handleOpenChange = (nextOpen) => {
+    if (nextOpen) updateOverlayPosition();
+    setOpen(nextOpen);
+  };
+
   const menu = {
     items: downloadFormats,
     onClick: ({ key }) => handleDownload(filename, svgIds, key),
@@ -19,11 +54,16 @@ export default function DownloadButton({ filename = "chart", svgIds = [] }) {
   return (
     <Dropdown
       menu={menu}
+      open={open}
+      onOpenChange={handleOpenChange}
       placement="bottomRight"
       trigger={["click"]}
       disabled={disabled}
+      overlayClassName={isFixedOverlay ? styles.dropdownOverlayFixed : ""}
+      overlayStyle={overlayStyle}
+      getPopupContainer={() => document.body}
     >
-      <span>
+      <span ref={triggerRef}>
         <BarButton
           title="Download image"
           icon={<DownloadOutlined />}

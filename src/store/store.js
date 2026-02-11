@@ -7,12 +7,11 @@ import metaReducer from "./slices/metaSlice";
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import {
-  createStateSyncMiddleware,
-  withReduxStateSync,
-  initStateWithPrevTab,
-} from "redux-state-sync";
+  HYDRATE_SHARED_STATE,
+  initializeSharedStateSync,
+} from "./sharedStateSync";
 
-const root_reducer = combineReducers({
+const baseReducer = combineReducers({
   cantab: cantabReducer,
   compare: compareReducer,
   evolution: evolutionReducer,
@@ -21,18 +20,35 @@ const root_reducer = combineReducers({
   dataframe: dataReducer,
 });
 
+const reducer = (state, action) => {
+  if (action?.type === HYDRATE_SHARED_STATE) {
+    if (!action.payload || typeof action.payload !== "object") return state;
+    const currentState = state ?? baseReducer(undefined, { type: "@@INIT" });
+    return {
+      ...currentState,
+      ...action.payload,
+    };
+  }
+  return baseReducer(state, action);
+};
+
 const store = configureStore({
-  reducer: withReduxStateSync(root_reducer),
-  middleware: (getDefaultMiddleware) => {
-    const middlewares = getDefaultMiddleware({
+  reducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
       immutableCheck: false,
       serializableCheck: false,
       immutableStateInvariant: false,
-    }).concat(createStateSyncMiddleware());
-    return middlewares;
-  },
+    }),
 });
 
-initStateWithPrevTab(store);
+let syncInitializationPromise = null;
+
+export const initializeStoreSync = () => {
+  if (!syncInitializationPromise) {
+    syncInitializationPromise = initializeSharedStateSync(store);
+  }
+  return syncInitializationPromise;
+};
 
 export default store;

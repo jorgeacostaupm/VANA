@@ -10,19 +10,36 @@ import styles from "@/styles/Charts.module.css";
 import NoDataPlaceholder from "@/components/charts/NoDataPlaceholder";
 import HierarchyBar from "../toolbar/HierarchyBar";
 import ViewMenu from "../tools/ViewMenu";
+import { DEFAULT_HIERARCHY_VIEW_CONFIG } from "../tools/HierarchyViewSettings";
 
 export default function HierarchyEditor() {
   const attributes = useSelector((state) => state.metadata.attributes);
   const [orientation, setOrientation] = useState("horizontal");
+  const [linkStyle, setLinkStyle] = useState("smooth");
+  const [brushSelectionVersion, setBrushSelectionVersion] = useState(0);
+  const [viewConfig, setViewConfig] = useState(DEFAULT_HIERARCHY_VIEW_CONFIG);
 
   return (
-    <div className={styles.viewContainer}>
+    <div className={styles.viewContainer} data-view-container>
       <HierarchyBar
         orientation={orientation}
         onOrientationChange={setOrientation}
+        linkStyle={linkStyle}
+        onLinkStyleChange={setLinkStyle}
+        viewConfig={viewConfig}
+        onViewConfigChange={setViewConfig}
+        onActivateBrushSelection={() =>
+          setBrushSelectionVersion((prev) => prev + 1)
+        }
       ></HierarchyBar>
       {attributes?.length > 0 ? (
-        <Hierarchy attributes={attributes} orientation={orientation} />
+        <Hierarchy
+          attributes={attributes}
+          orientation={orientation}
+          linkStyle={linkStyle}
+          viewConfig={viewConfig}
+          brushSelectionVersion={brushSelectionVersion}
+        />
       ) : (
         <NoDataPlaceholder message="No hierarchy available" />
       )}
@@ -30,10 +47,17 @@ export default function HierarchyEditor() {
   );
 }
 
-function Hierarchy({ attributes, orientation }) {
+function Hierarchy({
+  attributes,
+  orientation,
+  linkStyle,
+  viewConfig,
+  brushSelectionVersion,
+}) {
   const dispatch = useDispatch();
   const editorRef = useRef(null);
   const containerRef = useRef(null);
+  const hasInitializedBrushTrigger = useRef(false);
 
   const dimensions = useResizeObserver(containerRef);
   const version = useSelector((state) => state.metadata.version);
@@ -50,6 +74,7 @@ function Hierarchy({ attributes, orientation }) {
         containerRef.current,
         treeData,
         dispatch,
+        { viewConfig },
       );
     } else {
       editorRef.current.update(treeData);
@@ -64,6 +89,25 @@ function Hierarchy({ attributes, orientation }) {
     if (!editorRef.current) return;
     editorRef.current.setOrientation?.(orientation);
   }, [orientation]);
+
+  useEffect(() => {
+    if (!editorRef.current) return;
+    editorRef.current.setLinkStyle?.(linkStyle);
+  }, [linkStyle]);
+
+  useEffect(() => {
+    if (!editorRef.current) return;
+    editorRef.current.setViewConfig?.(viewConfig);
+  }, [viewConfig]);
+
+  useEffect(() => {
+    if (!hasInitializedBrushTrigger.current) {
+      hasInitializedBrushTrigger.current = true;
+      return;
+    }
+    if (!editorRef.current) return;
+    editorRef.current.activateBrushSelection?.();
+  }, [brushSelectionVersion]);
 
   // Resize
   useEffect(() => {

@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { moveTooltip } from "@/utils/functions";
 import useResizeObserver from "@/hooks/useResizeObserver";
 
-export const catMargins = { top: 20, right: 30, bottom: 40, left: 40 };
+export const catMargins = { top: 30, right: 40, bottom: 50, left: 50 };
 
 export default function useGroupedBarChart({
   chartRef,
@@ -18,7 +18,7 @@ export default function useGroupedBarChart({
 
     const { width, height } = dimensions;
     const { chartData, categories, categoriesWithValues, groupVar } = data;
-    const { showLegend, groupOrder, categoryOrder } = config || {};
+    const { showLegend, showGrid = true, groupOrder, categoryOrder } = config || {};
 
     d3.select(chartRef.current).selectAll("*").remove();
     d3.select(legendRef.current).selectAll("*").remove();
@@ -97,7 +97,30 @@ export default function useGroupedBarChart({
       .call(d3.axisBottom(x0))
       .selectAll("text");
 
+    if (showGrid) {
+      chart
+        .append("g")
+        .attr("class", "grid y-grid")
+        .call(d3.axisLeft(y).ticks(null, "d").tickSize(-chartWidth).tickFormat(""))
+        .call((g) => g.select(".domain").remove());
+    }
+
     chart.append("g").call(d3.axisLeft(y).ticks(null, "d"));
+
+    const inactiveOpacity = 0.25;
+    const setCategoryHighlight = (activeCategory = null) => {
+      const hasActiveCategory = activeCategory !== null;
+
+      chart.selectAll("rect.bar").attr("opacity", (d) => {
+        if (!hasActiveCategory) return 1;
+        return d.key === activeCategory ? 1 : inactiveOpacity;
+      });
+
+      legend.selectAll(".legend-item").attr("opacity", (d) => {
+        if (!hasActiveCategory) return 1;
+        return d === activeCategory ? 1 : inactiveOpacity;
+      });
+    };
 
     const groupG = chart
       .selectAll("g.group")
@@ -112,58 +135,79 @@ export default function useGroupedBarChart({
       .data((d) => orderedCategories.map((key) => ({ key, value: d[key] })))
       .enter()
       .append("rect")
+      .attr("class", "bar")
       .attr("x", (d) => x1(d.key))
       .attr("y", (d) => y(d.value))
       .attr("width", x1.bandwidth())
       .attr("height", (d) => chartHeight - y(d.value))
       .attr("fill", (d) => color(d.key))
       .on("mouseover", (event, d) => {
+        setCategoryHighlight(d.key);
         tooltip
           .style("visibility", "visible")
           .html(
             `<strong>Nº Items: ${d.value}</strong><br/>Category: ${d.key}<br/>`
           );
-        d3.select(event.currentTarget).attr("opacity", 0.7);
       })
       .on("mousemove", (event) => moveTooltip(event, tooltip, chart))
-      .on("mouseout", (event) => {
+      .on("mouseout", () => {
+        setCategoryHighlight(null);
         tooltip.style("visibility", "hidden");
-        d3.select(event.currentTarget).attr("opacity", 1);
       });
 
     if (showLegend !== false) {
-      renderLegend(legend, orderedCategories, color);
+      renderLegend(legend, orderedCategories, color, {
+        onItemMouseOver: setCategoryHighlight,
+        onItemMouseOut: () => setCategoryHighlight(null),
+      });
     }
   }, [data, config, dimensions]);
 }
 
-export function renderLegend(legend, groups, color) {
+export function renderLegend(
+  legend,
+  groups,
+  color,
+  { onItemMouseOver, onItemMouseOut } = {}
+) {
   const circleSize = 10;
   const padding = 6;
   const lineHeight = circleSize * 2 + padding;
 
   const legendGroup = legend.append("g").attr("class", "legend-group");
 
-  groups
+  [...groups]
     .sort()
     .reverse()
-    .forEach((d, i) => {
+    .forEach((group, i) => {
       const y = i * lineHeight + circleSize * 2;
+      const legendItem = legendGroup
+        .append("g")
+        .attr("class", "legend-item")
+        .attr("transform", `translate(0,${y})`)
+        .datum(group);
 
-      legendGroup
+      if (onItemMouseOver || onItemMouseOut) {
+        legendItem
+          .style("cursor", "pointer")
+          .on("mouseover", () => onItemMouseOver?.(group))
+          .on("mouseout", () => onItemMouseOut?.());
+      }
+
+      legendItem
         .append("circle")
         .attr("class", "legend-circle")
         .attr("cx", circleSize + 10)
-        .attr("cy", y)
+        .attr("cy", 0)
         .attr("r", circleSize)
-        .style("fill", color(d));
+        .style("fill", color(group));
 
-      legendGroup
+      legendItem
         .append("text")
-        .attr("class", "legend")
+        .attr("class", "legend legend-label")
         .attr("x", circleSize * 2 + 15)
-        .attr("y", y + 4)
-        .text(d);
+        .attr("y", 4)
+        .text(group);
     });
 
   const bbox = legendGroup.node().getBBox();

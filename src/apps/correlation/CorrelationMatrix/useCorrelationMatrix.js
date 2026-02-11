@@ -13,6 +13,7 @@ import {
 import { moveTooltip } from "@/utils/functions";
 import useResizeObserver from "@/hooks/useResizeObserver";
 import { CORRELATION_METHOD_MAP } from "./constants";
+import { CHART_HIGHLIGHT } from "@/utils/chartTheme";
 
 const INTERPOLATORS = {
   rdBu: interpolateRdBu,
@@ -38,7 +39,7 @@ export default function useCorrelationMatrix({ chartRef, data, config, params })
     const varsSet = new Set(allVars);
     const variables = Array.from(varsSet);
 
-    let margin = { top: 60, right: 100, bottom: 40, left: 100 };
+    let margin = { top: 70, right: 110, bottom: 50, left: 120 };
 
     if (showLabels !== false) {
       const tempContainer = document.createElement("div");
@@ -71,10 +72,10 @@ export default function useCorrelationMatrix({ chartRef, data, config, params })
       document.body.removeChild(tempContainer);
 
       margin = {
-        top: Math.max(100, totalTopSpace + 30) + 20,
-        right: 100,
-        bottom: 40,
-        left: 140,
+        top: Math.max(110, totalTopSpace + 30) + 20,
+        right: 110,
+        bottom: 50,
+        left: 150,
       };
 
       if (bbox.x < 0) {
@@ -152,7 +153,7 @@ export default function useCorrelationMatrix({ chartRef, data, config, params })
         .style("fill", color(value))
         .on("mouseover", function (e, d) {
           const target = e.target;
-          d3.select(target).style("stroke", "black").raise();
+          d3.select(target).style("stroke", CHART_HIGHLIGHT).raise();
           tooltip.style("opacity", 1);
           const methodLabel = methodInfo?.label || "Pearson (r)";
           let html = `<strong> ${x} & ${y}</strong> <br> ${methodLabel}: ${value.toFixed(

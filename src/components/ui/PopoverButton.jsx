@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Popover, Button, Tooltip } from "antd";
 import styles from "./PopoverButton.module.css";
-import chartStyles from "@/styles/Charts.module.css";
+import { getViewOverlayPosition } from "./popupPosition";
 
 export default function PopoverButton({
   content,
@@ -12,6 +12,9 @@ export default function PopoverButton({
 }) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [open, setOpen] = useState(false);
+  const [overlayStyle, setOverlayStyle] = useState(undefined);
+  const [isFixedOverlay, setIsFixedOverlay] = useState(false);
+  const triggerRef = useRef(null);
 
   const showTooltip = () => setTooltipVisible(true);
 
@@ -23,10 +26,30 @@ export default function PopoverButton({
     return () => clearTimeout(timer);
   }, [tooltipVisible, tooltipDuration]);
 
+  const updateOverlayPosition = useCallback(() => {
+    const position = getViewOverlayPosition(triggerRef.current);
+    setOverlayStyle(position || undefined);
+    setIsFixedOverlay(Boolean(position));
+  }, []);
+
   const handleOpenChange = (nextOpen) => {
+    if (nextOpen) updateOverlayPosition();
     setOpen(nextOpen);
     if (nextOpen) setTooltipVisible(false);
   };
+
+  useEffect(() => {
+    if (!open || !isFixedOverlay) return undefined;
+
+    const updatePosition = () => updateOverlayPosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, isFixedOverlay, updateOverlayPosition]);
 
   return (
     <Popover
@@ -41,11 +64,11 @@ export default function PopoverButton({
       }
       trigger="click"
       placement={placement}
-      overlayClassName={styles.popoverOverlay}
-      getPopupContainer={(triggerNode) =>
-        triggerNode?.closest?.(`.${chartStyles.viewContainer}`) ||
-        document.body
-      }
+      overlayClassName={`${styles.popoverOverlay} ${
+        isFixedOverlay ? styles.popoverOverlayFixed : ""
+      }`}
+      overlayStyle={overlayStyle}
+      getPopupContainer={() => document.body}
     >
       <Tooltip
         title={title}
@@ -53,7 +76,11 @@ export default function PopoverButton({
         onOpenChange={setTooltipVisible}
         mouseLeaveDelay={0}
       >
-        <span onMouseEnter={showTooltip} className={styles.tooltipTrigger}>
+        <span
+          ref={triggerRef}
+          onMouseEnter={showTooltip}
+          className={styles.tooltipTrigger}
+        >
           <Button
             size="small"
             className={`${styles.menuButton} ${

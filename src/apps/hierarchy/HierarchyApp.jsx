@@ -13,7 +13,7 @@ import useNotification from "@/hooks/useNotification";
 const ResponsiveGridLayout = WidthProvider(GridLayout);
 
 export default function HierarchyApp() {
-  useRootStyles(setInit, APP_NAME + " - " + Apps.HIERARCHY);
+  useRootStyles(setInit, APP_NAME + " · " + Apps.HIERARCHY);
   const holder = useNotification();
 
   const layout = [

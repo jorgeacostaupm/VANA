@@ -10,7 +10,7 @@ import { DATASETS } from "@/utils/Constants";
 import { pubsub } from "@/utils/pubsub";
 const { publish } = pubsub;
 
-const env = import.meta?.env?.MODE || process.env.NODE_ENV || "dev";
+const env = import.meta?.env?.MODE || "dev";
 const { dataPath, hierarchyPath, descriptionsPath, idVar, groupVar, timeVar } =
   env === "production" ? DATASETS.prod : DATASETS.dev;
 
@@ -39,11 +39,13 @@ export default async function loadTestData(dispatch) {
     dispatch(setIdVar(idVar));
     dispatch(setGroupVar(groupVar));
     dispatch(setTimeVar(timeVar));
+    return true;
   } catch (error) {
     publish("notification", {
       message: "Error Loading Test Data",
       description: error.message,
       type: "error",
     });
+    return false;
   }
 }

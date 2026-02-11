@@ -48,10 +48,51 @@ const buildOperationName = (operation, colName, extraArgs) => {
 
 const getOperationDtype = (operation) =>
   TEXT_OPERATIONS.has(operation) ? "text" : "number";
+const ROOT_NODE_NAME = "Hierarchy Root";
+
+const getNodeId = (node) => node?.data?.id ?? node?.id ?? null;
+
+const getNodeName = (node) => node?.data?.name ?? node?.name ?? null;
+
+const setHierarchyRootName = (hierarchy) => {
+  if (!Array.isArray(hierarchy)) return hierarchy;
+
+  return hierarchy.map((node) => {
+    const isRootNode = node?.type === "root" || node?.id === 0;
+    if (!isRootNode || node?.name === ROOT_NODE_NAME) return node;
+    return { ...node, name: ROOT_NODE_NAME };
+  });
+};
+
+const getNodeLabel = (node) => {
+  const nodeName = getNodeName(node);
+  const nodeId = getNodeId(node);
+
+  if (nodeName && nodeId != null) return `${nodeName} (#${nodeId})`;
+  if (nodeName) return nodeName;
+  if (nodeId != null) return `Node #${nodeId}`;
+  return "Unknown node";
+};
+
+const formatErrorMessage = (error, fallback = "Unknown error") => {
+  if (typeof error === "string" && error.trim().length > 0) return error;
+  if (error?.message && String(error.message).trim().length > 0) {
+    return error.message;
+  }
+  if (error?.error && String(error.error).trim().length > 0) {
+    return error.error;
+  }
+  return fallback;
+};
 
 function getAggregation(operation, params, node) {
-  const colName = node.data.name;
-  const id = node.data.id;
+  const colName = getNodeName(node);
+  const id = getNodeId(node);
+
+  if (!colName || id == null) {
+    throw new Error(`Node data is invalid: ${getNodeLabel(node)}`);
+  }
+
   const opConfig = ALL_FUNCTIONS[operation];
 
   if (!opConfig) {
@@ -85,7 +126,7 @@ function getAggregation(operation, params, node) {
     name = `Z-${colName}-${group}`;
   } else if (operation === "zscoreByValues") {
     const values = params?.values || params;
-    const valueParams = values?.[id];
+    const valueParams = values?.[id] ?? values?.[node?.id];
     if (!valueParams || valueParams.mean == null || valueParams.stdev == null) {
       throw new Error(
         `Mean and stdev are required for node ${colName} (${id})`
@@ -129,41 +170,87 @@ export const applyOperation = createAsyncThunk(
   "metadata/applyOperation",
   async (payload, { dispatch, rejectWithValue }) => {
     try {
-      const { operation, params, node, selectedNodes } = payload;
+      const { operation, params, selectedNodes } = payload;
 
       if (!selectedNodes || selectedNodes.length === 0) {
         throw new Error("No nodes selected");
       }
 
-      const cols = [];
+      const applied = [];
+      const failed = [];
 
       for (const n of selectedNodes) {
-        const agg = getAggregation(operation, params, n);
+        const nodeId = getNodeId(n);
+        const nodeName = getNodeName(n) || getNodeLabel(n);
+        let createdNodeId = null;
+        let reason = null;
 
-        // Añadir atributo a la metadata
-        await dispatch(
-          addAttribute({
-            id: getRandomInt(),
-            name: agg.name,
-            type: "aggregation",
-            parentID: n.data.id,
-            info: agg.info,
-            dtype: agg.dtype || "number",
-          })
-        ).unwrap();
+        try {
+          const agg = getAggregation(operation, params, n);
+          createdNodeId = getRandomInt();
 
-        cols.push({ name: agg.name, info: agg.info });
+          // Se evita generateEmpty en este flujo para no sobrescribir luego el resultado de generateColumn.
+          await dispatch(
+            addAttribute({
+              id: createdNodeId,
+              name: agg.name,
+              type: "aggregation",
+              parentID: nodeId,
+              info: agg.info,
+              dtype: agg.dtype || "number",
+              skipGenerateEmpty: true,
+            })
+          ).unwrap();
+
+          await dispatch(
+            generateColumn({
+              colName: agg.name,
+              formula: agg.info.exec,
+            })
+          ).unwrap();
+
+          applied.push({
+            id: nodeId,
+            name: nodeName,
+            aggregationName: agg.name,
+          });
+        } catch (error) {
+          reason = formatErrorMessage(error);
+
+          // Si la metadata fue creada pero el cálculo falla, se intenta limpiar ese nodo.
+          if (createdNodeId != null) {
+            try {
+              await dispatch(
+                removeAttribute({
+                  attributeID: createdNodeId,
+                  recover: false,
+                })
+              ).unwrap();
+            } catch (cleanupError) {
+              const cleanupMsg = formatErrorMessage(cleanupError, null);
+              if (cleanupMsg) {
+                reason = `${reason}. Cleanup failed: ${cleanupMsg}`;
+              }
+            }
+          }
+
+          failed.push({
+            id: nodeId,
+            name: nodeName,
+            reason,
+          });
+        }
       }
 
-      // Generar todas las columnas en batch
-      if (cols.length > 0) {
-        await dispatch(generateColumnBatch({ cols })).unwrap();
-      }
-
-      return payload;
+      return {
+        operation,
+        total: selectedNodes.length,
+        applied,
+        failed,
+      };
     } catch (err) {
-      console.error("applyOperation error:", err.message);
-      return rejectWithValue(err.message || "Error adding attribute.");
+      console.error("applyOperation error:", formatErrorMessage(err));
+      return rejectWithValue(formatErrorMessage(err, "Error applying operation."));
     }
   }
 );
@@ -179,6 +266,7 @@ function createNodeInfo(objectTypes) {
         dtype: objectTypes[key],
         related: [],
         isShown: true,
+        isActive: true,
         type: "attribute",
         desc: "",
       });
@@ -224,11 +312,12 @@ export const buildMetaFromVariableTypes = createAsyncThunk(
 
       const root = {
         id: 0,
-        name: "Root",
+        name: ROOT_NODE_NAME,
         desc: "Just the root of the hierarchy",
         type: "root",
         dtype: "root",
         isShown: true,
+        isActive: true,
         related: nodeInfo.map((n) => n.id),
       };
 
@@ -263,13 +352,13 @@ export const addAttribute = createAsyncThunk(
   "metadata/addAttribute",
   async (payload, { dispatch, rejectWithValue }) => {
     try {
-      const { name, type } = payload;
+      const { name, type, skipGenerateEmpty = false } = payload;
 
       if (!name || !type) {
         return rejectWithValue("Attribute name or type is missing.");
       }
 
-      if (type === "aggregation") {
+      if (type === "aggregation" && !skipGenerateEmpty) {
         dispatch(generateEmpty({ colName: name }));
       }
 
@@ -389,12 +478,14 @@ export const updateHierarchy = createAsyncThunk(
   "metadata/updateHierarchy",
   async ({ hierarchy, filename }, { dispatch, rejectWithValue }) => {
     try {
-      const tree = generateTree(hierarchy, 0);
+      const normalizedFilename = getFileName(filename);
+      const normalizedHierarchy = setHierarchyRootName(hierarchy);
+      const tree = generateTree(normalizedHierarchy, 0);
       const navioColumns = getVisibleNodes(tree);
-      dispatch(generateColumnBatch({ cols: hierarchy }));
+      dispatch(generateColumnBatch({ cols: normalizedHierarchy }));
       return {
-        filename: getFileName(filename),
-        hierarchy,
+        filename: normalizedFilename,
+        hierarchy: normalizedHierarchy,
         navioColumns,
       };
     } catch (error) {

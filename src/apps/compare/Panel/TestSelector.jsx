@@ -21,7 +21,6 @@ export default function TestSelector({ generateTest, generateRanking }) {
   const varTypes = useSelector((s) => s.cantab.present.varTypes);
   const groups = useSelector((s) => s.cantab.present.selectionGroups);
   const groupVar = useSelector((s) => s.cantab.present.groupVar);
-  const selectedTestObj = tests.find((t) => t.label === selectedTest);
 
   function getTypeLabel(test) {
     const category = String(test.category || "").toLowerCase();
@@ -85,6 +84,7 @@ export default function TestSelector({ generateTest, generateRanking }) {
       const configuration = {
         message: "Test not applicable",
         type: "error",
+        source: "test",
       };
       publish("notification", configuration);
     }

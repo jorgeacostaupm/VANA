@@ -30,11 +30,33 @@ export default function Settings({ config, setConfig }) {
             <Radio.Button value="grouped">Grouped bars</Radio.Button>
           </Radio.Group>
         </div>
+        {config.chartType === "stacked" && (
+          <div className={panelStyles.rowStack}>
+            <Text className={panelStyles.label}>Stack values</Text>
+            <Radio.Group
+              className={panelStyles.control}
+              optionType="button"
+              buttonStyle="solid"
+              value={config.stackedMode || "total"}
+              onChange={(e) => update("stackedMode", e.target.value)}
+            >
+              <Radio.Button value="total">Totals</Radio.Button>
+              <Radio.Button value="proportion">Proportions</Radio.Button>
+            </Radio.Group>
+          </div>
+        )}
         <div className={panelStyles.row}>
           <Text className={panelStyles.label}>Legend</Text>
           <Switch
             checked={config.showLegend}
             onChange={(v) => update("showLegend", v)}
+          />
+        </div>
+        <div className={panelStyles.row}>
+          <Text className={panelStyles.label}>Grid</Text>
+          <Switch
+            checked={config.showGrid}
+            onChange={(v) => update("showGrid", v)}
           />
         </div>
       </div>

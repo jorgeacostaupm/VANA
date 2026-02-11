@@ -1,5 +1,4 @@
 import React from "react";
-import { useSelector, useDispatch } from "react-redux";
 import { Apps } from "@/utils/Constants";
 import PanelButton from "./PanelButton";
 
@@ -11,34 +10,32 @@ const APP_ROUTE_MAP = {
   cantab: Apps.QUARANTINE,
 };
 
-export default function LinkButton({
-  to,
-  setInit,
-  icon,
-  disabled = false,
-  disabledTitle,
-}) {
-  const initialized = useSelector((state) => state[to]?.init);
-  const dispatch = useDispatch();
+const APP_WINDOW_TARGET_MAP = {
+  metadata: "vana-app-metadata",
+  compare: "vana-app-compare",
+  evolution: "vana-app-evolution",
+  correlation: "vana-app-correlation",
+  cantab: "vana-app-cantab",
+};
 
-  const appName = APP_ROUTE_MAP[to] || to;
-  const isDisabled = Boolean(disabled);
-  const tooltipTitle =
-    isDisabled && disabledTitle
-      ? disabledTitle
-      : isDisabled
-      ? `${appName} is already open`
-      : `Open ${appName}`;
+const buildAppUrl = (route) => {
+  const base = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+  return `${base}#/${route}`;
+};
+
+export default function LinkButton({ to, icon }) {
+  const route = to || "";
+  const appName = APP_ROUTE_MAP[route] || route;
+  const targetName = APP_WINDOW_TARGET_MAP[route] || `vana-app-${route}`;
+
+  const tooltipTitle = `Open or focus ${appName}`;
 
   const handleOpenTab = () => {
-    if (isDisabled) return;
-    if (!initialized) {
-      dispatch(setInit(true));
-      window.open(
-        window.location.href + "#/" + to,
-        "_blank",
-        "noopener,noreferrer"
-      );
+    if (!route) return;
+
+    const appWindow = window.open(buildAppUrl(route), targetName);
+    if (appWindow && typeof appWindow.focus === "function") {
+      appWindow.focus();
     }
   };
 
@@ -47,7 +44,6 @@ export default function LinkButton({
       title={tooltipTitle}
       onClick={handleOpenTab}
       icon={icon}
-      disabled={isDisabled}
     />
   );
 }

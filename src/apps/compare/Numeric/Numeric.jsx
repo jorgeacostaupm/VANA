@@ -49,7 +49,7 @@ export default function Numeric({ id, variable, remove }) {
 
   return (
     <ViewContainer
-      title={`Distribution - ${variable}`}
+      title={`Distribution · ${variable}`}
       svgIDs={[id, `${id}-legend`]}
       info={info}
       remove={remove}

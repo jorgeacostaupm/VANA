@@ -1,6 +1,7 @@
 import { Modal, Select, InputNumber, Input, Button, Typography } from "antd";
 import { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { pubsub } from "@/utils/pubsub";
 
 import {
   ALL_FUNCTIONS,
@@ -13,6 +14,28 @@ import { getCategoricalKeys } from "@/utils/functions";
 
 const { Option, OptGroup } = Select;
 const { Text } = Typography;
+const { publish } = pubsub;
+
+const formatPreview = (items, formatter, max = 6) => {
+  if (!Array.isArray(items) || items.length === 0) return "-";
+  const preview = items.slice(0, max).map(formatter).filter(Boolean);
+  const remaining = items.length - preview.length;
+  return remaining > 0
+    ? `${preview.join(", ")} (+${remaining} more)`
+    : preview.join(", ");
+};
+
+const toNodeLabel = (node) => {
+  const name = node?.name || node?.aggregationName || "Unknown node";
+  const id = node?.id;
+  return id != null ? `${name} (#${id})` : name;
+};
+
+const toFailureLabel = (entry) => {
+  const base = toNodeLabel(entry);
+  if (!entry?.reason) return base;
+  return `${base}: ${entry.reason}`;
+};
 
 export default function OperationModal({
   open,
@@ -25,6 +48,7 @@ export default function OperationModal({
 
   const [operation, setOperation] = useState(null);
   const [params, setParams] = useState({});
+  const [submitting, setSubmitting] = useState(false);
   const safeSelectedNodes = Array.isArray(selectedNodes) ? selectedNodes : [];
 
   const data = useSelector((state) => state.dataframe.present.selection || []);
@@ -99,6 +123,7 @@ export default function OperationModal({
     if (!open) {
       setOperation(null);
       setParams({});
+      setSubmitting(false);
     }
   }, [open]);
 
@@ -201,18 +226,70 @@ export default function OperationModal({
     return false;
   };
 
-  const onConfirm = () => {
-    dispatch(
-      applyOperation({
-        operation,
-        params,
-        node,
-        selectedNodes,
-      })
-    );
+  const onConfirm = async () => {
+    if (isConfirmDisabled() || submitting) return;
 
-    setOpen(false);
-    setActive(false);
+    setSubmitting(true);
+
+    try {
+      const action = await dispatch(
+        applyOperation({
+          operation,
+          params,
+          node,
+          selectedNodes: safeSelectedNodes,
+        })
+      );
+
+      if (applyOperation.fulfilled.match(action)) {
+        const { total = safeSelectedNodes.length, applied = [], failed = [] } =
+          action.payload || {};
+
+        const description = [
+          applied.length > 0
+            ? `Created (${applied.length}/${total}): ${formatPreview(applied, toNodeLabel)}`
+            : "",
+          failed.length > 0
+            ? `Failed (${failed.length}/${total}): ${formatPreview(failed, toFailureLabel, 4)}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        publish("notification", {
+          message:
+            failed.length === 0
+              ? "Operation applied"
+              : applied.length === 0
+                ? "Operation failed for selection"
+                : "Operation completed with warnings",
+          description,
+          type:
+            failed.length === 0
+              ? "success"
+              : applied.length === 0
+                ? "error"
+                : "warning",
+          pauseOnHover: true,
+          duration: 6,
+        });
+      } else {
+        publish("notification", {
+          message: "Operation failed",
+          description:
+            action.payload ||
+            action.error?.message ||
+            "Error applying operation to selection.",
+          type: "error",
+          pauseOnHover: true,
+        });
+      }
+
+      setOpen(false);
+      setActive(false);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!node?.parent) return null;
@@ -233,7 +310,8 @@ export default function OperationModal({
       open={open}
       onOk={onConfirm}
       onCancel={() => setOpen(false)}
-      okButtonProps={{ disabled: isConfirmDisabled() }}
+      okButtonProps={{ disabled: isConfirmDisabled() || submitting }}
+      confirmLoading={submitting}
       destroyOnClose
     >
       <div style={{ marginBottom: 16 }}>

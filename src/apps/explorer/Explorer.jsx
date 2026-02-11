@@ -11,10 +11,12 @@ import { updateConfig } from "@/store/slices/dataSlice";
 export default function Explorer() {
   const dt = useSelector((state) => state.dataframe.present.dataframe);
   const config = useSelector((state) => state.dataframe.present.config);
+  const filename = useSelector((state) => state.dataframe.present.filename);
+  const title = filename ? `Overview · ${filename}` : "Overview";
 
   return (
-    <div className={styles.viewContainer}>
-      <Bar title="Overview" config={config} updateConfig={updateConfig} />
+    <div className={styles.viewContainer} data-view-container>
+      <Bar title={title} config={config} updateConfig={updateConfig} />
 
       {dt && dt.length > 0 ? (
         <Navio data={dt} config={config} setSelection={setSelection} />

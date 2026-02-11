@@ -20,7 +20,14 @@ export default function useStackedBarChart({
 
     const { width, height } = dimensions;
     const { chartData, categories, categoriesWithValues, groupVar } = data;
-    const { showLegend, groupOrder, categoryOrder } = config || {};
+    const {
+      showLegend,
+      showGrid = true,
+      groupOrder,
+      categoryOrder,
+      stackedMode = "total",
+    } = config || {};
+    const isProportionMode = stackedMode === "proportion";
 
     d3.select(chartRef.current).selectAll("*").remove();
     d3.select(legendRef.current).selectAll("*").remove();
@@ -72,16 +79,35 @@ export default function useStackedBarChart({
       return String(a).localeCompare(String(b));
     });
 
-    const stackGenerator = d3.stack().keys(orderedCategories);
-    const series = stackGenerator(chartData);
+    const stackedData = chartData.map((row) => {
+      const total = orderedCategories.reduce((sum, category) => {
+        return sum + (row[category] || 0);
+      }, 0);
+      const formattedRow = { ...row, __total: total, __rawValues: {} };
 
-    const maxSum = d3.max(chartData, (d) =>
-      orderedCategories.reduce((sum, c) => sum + d[c], 0)
-    );
+      orderedCategories.forEach((category) => {
+        const rawValue = row[category] || 0;
+        formattedRow.__rawValues[category] = rawValue;
+        formattedRow[category] =
+          isProportionMode && total > 0 ? rawValue / total : rawValue;
+      });
+
+      return formattedRow;
+    });
+
+    const stackGenerator = d3.stack().keys(orderedCategories);
+    const series = stackGenerator(stackedData);
+
+    const maxSum = isProportionMode
+      ? 1
+      : d3.max(stackedData, (d) =>
+          orderedCategories.reduce((sum, c) => sum + (d[c] || 0), 0)
+        ) || 0;
+    const yDomainMax = maxSum > 0 ? maxSum : 1;
 
     const y = d3
       .scaleLinear()
-      .domain([0, maxSum])
+      .domain([0, yDomainMax])
       .nice()
       .range([chartHeight, 0]);
 
@@ -96,7 +122,43 @@ export default function useStackedBarChart({
       .call(d3.axisBottom(x))
       .selectAll("text");
 
-    chart.append("g").call(d3.axisLeft(y).ticks(null, "d"));
+    if (showGrid) {
+      const yGridAxis = d3.axisLeft(y).tickSize(-chartWidth).tickFormat("");
+      if (isProportionMode) {
+        yGridAxis.ticks(5);
+      } else {
+        yGridAxis.ticks(null, "d");
+      }
+
+      chart
+        .append("g")
+        .attr("class", "grid y-grid")
+        .call(yGridAxis)
+        .call((g) => g.select(".domain").remove());
+    }
+
+    const yAxis = d3.axisLeft(y);
+    if (isProportionMode) {
+      yAxis.tickFormat(d3.format(".0%"));
+    } else {
+      yAxis.ticks(null, "d");
+    }
+    chart.append("g").call(yAxis);
+
+    const inactiveOpacity = 0.25;
+    const setCategoryHighlight = (activeCategory = null) => {
+      const hasActiveCategory = activeCategory !== null;
+
+      chart.selectAll("rect.stacked-bar").attr("opacity", (d) => {
+        if (!hasActiveCategory) return 1;
+        return d.key === activeCategory ? 1 : inactiveOpacity;
+      });
+
+      legend.selectAll(".legend-item").attr("opacity", (d) => {
+        if (!hasActiveCategory) return 1;
+        return d === activeCategory ? 1 : inactiveOpacity;
+      });
+    };
 
     const layer = chart
       .selectAll(".layer")
@@ -108,39 +170,50 @@ export default function useStackedBarChart({
 
     layer
       .selectAll("rect")
-      .data((d) =>
-        d.map((d2) => ({
-          key: d.key,
-          group: d2.data[groupVar],
-          y0: d2[0],
-          y1: d2[1],
-          value: d2[1] - d2[0],
-        }))
+      .data((seriesItem) =>
+        seriesItem.map((point) => {
+          const rawValue = point.data.__rawValues[seriesItem.key] || 0;
+          const total = point.data.__total || 0;
+          return {
+            key: seriesItem.key,
+            group: point.data[groupVar],
+            y0: point[0],
+            y1: point[1],
+            rawValue,
+            proportion: total > 0 ? rawValue / total : 0,
+          };
+        })
       )
       .enter()
       .append("rect")
+      .attr("class", "stacked-bar")
       .attr("x", (d) => x(d.group))
       .attr("y", (d) => y(d.y1))
       .attr("height", (d) => y(d.y0) - y(d.y1))
       .attr("width", x.bandwidth())
       .on("mouseover", (e, d) => {
+        setCategoryHighlight(d.key);
+        const mainValue = isProportionMode
+          ? `Proportion: ${d3.format(".1%")(d.proportion)}`
+          : `Nº Items: ${d.rawValue}`;
+        const secondaryValue = isProportionMode ? `<br/>Nº Items: ${d.rawValue}` : "";
         tooltip.style("visibility", "visible").html(
-          `<strong>Nº Items: ${d.value}</strong><br/>
-             Category: ${d.key}<br/>
-             `
+          `<strong>${mainValue}</strong>${secondaryValue}<br/>Category: ${d.key}<br/>`
         );
-        d3.select(e.currentTarget).attr("opacity", 0.7);
       })
       .on("mousemove", (e) => {
         moveTooltip(e, tooltip, chart);
       })
-      .on("mouseout", (e) => {
+      .on("mouseout", () => {
+        setCategoryHighlight(null);
         tooltip.style("visibility", "hidden");
-        d3.select(e.currentTarget).attr("opacity", 1);
       });
 
     if (showLegend !== false) {
-      renderLegend(legend, orderedCategories, color);
+      renderLegend(legend, orderedCategories, color, {
+        onItemMouseOver: setCategoryHighlight,
+        onItemMouseOut: () => setCategoryHighlight(null),
+      });
     }
   }, [data, config, dimensions]);
 }

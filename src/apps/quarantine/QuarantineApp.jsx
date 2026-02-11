@@ -23,7 +23,7 @@ const layout = [
 ];
 
 export default function QuarantineApp() {
-  useRootStyles(setInitQuarantine, APP_NAME + " - " + Apps.QUARANTINE);
+  useRootStyles(setInitQuarantine, APP_NAME + " · " + Apps.QUARANTINE);
   const holder = useNotification();
 
   return (

@@ -86,6 +86,41 @@ export const metaSlice = createSlice({
       publish("notification", configuration);
     }),
 
+    setNodeOverviewAccess: create.reducer((state, action) => {
+      const { nodeId, isActive } = action.payload || {};
+      if (nodeId == null || typeof isActive !== "boolean") return;
+
+      const nodeIdx = state.attributes.findIndex((node) => node.id === nodeId);
+      if (nodeIdx === -1) return;
+      if (state.attributes[nodeIdx].type === "root") return;
+
+      if (state.attributes[nodeIdx].isActive === isActive) return;
+      state.attributes[nodeIdx].isActive = isActive;
+      state.version += 1;
+    }),
+
+    setNodesOverviewAccess: create.reducer((state, action) => {
+      const { nodeIds, isActive } = action.payload || {};
+      if (!Array.isArray(nodeIds) || typeof isActive !== "boolean") return;
+      if (nodeIds.length === 0) return;
+
+      let hasChanges = false;
+
+      nodeIds.forEach((nodeId) => {
+        const nodeIdx = state.attributes.findIndex((node) => node.id === nodeId);
+        if (nodeIdx === -1) return;
+        if (state.attributes[nodeIdx].type === "root") return;
+        if (state.attributes[nodeIdx].isActive === isActive) return;
+
+        state.attributes[nodeIdx].isActive = isActive;
+        hasChanges = true;
+      });
+
+      if (hasChanges) {
+        state.version += 1;
+      }
+    }),
+
     aggregateSelectedNodes: create.reducer((state, action) => {
       const { id, name, type, recover, info, childIDs, parentID, sourceID } =
         action.payload;
@@ -105,6 +140,7 @@ export const metaSlice = createSlice({
         type,
         info: newInfo,
         isShown: true,
+        isActive: true,
         desc: "",
         dtype: "determine",
       };
@@ -192,6 +228,9 @@ export const metaSlice = createSlice({
         state.version += 0.5;
       })
       .addCase(changeRelationship.rejected, (state, action) => {
+        const isSilent = Boolean(action.meta?.arg?.silent);
+        if (isSilent) return;
+
         const configuration = {
           message: "Cannot reassign node",
           description: action.payload,
@@ -295,6 +334,7 @@ export const metaSlice = createSlice({
         type: type,
         info: newInfo,
         isShown: true,
+        isActive: true,
         desc: "",
         dtype: dtype ? dtype : type === "aggregation" ? "determine" : "number",
       });
@@ -398,9 +438,22 @@ export const metaSlice = createSlice({
         publish("notification", configuration);
       });
 
-    builder.addCase(applyOperation.fulfilled, (state, action) => {
-      state.version += 1;
-    });
+    builder
+      .addCase(applyOperation.fulfilled, (state, action) => {
+        const appliedCount = action.payload?.applied?.length || 0;
+        if (appliedCount > 0) {
+          state.version += 1;
+        }
+      })
+      .addCase(applyOperation.rejected, (state, action) => {
+        const configuration = {
+          message: "Operation failed",
+          description: action.payload || "Error applying operation to nodes.",
+          type: "error",
+          pauseOnHover: true,
+        };
+        publish("notification", configuration);
+      });
   },
 });
 
@@ -408,6 +461,8 @@ export const {
   setInit,
   setFullMeta,
   setDescriptions,
+  setNodeOverviewAccess,
+  setNodesOverviewAccess,
   aggregateSelectedNodes,
   setFocusNode,
   changeOrder,

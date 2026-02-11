@@ -86,7 +86,7 @@ export default function LineChart({ id, variable, remove }) {
 
   return (
     <ViewContainer
-      title={`Evolution - ${variable}`}
+      title={`Evolution · ${variable}`}
       svgIDs={[id, `${id}-legend`]}
       info={
         data?.tests?.length ? <EvolutionTestsInfo tests={data.tests} /> : null

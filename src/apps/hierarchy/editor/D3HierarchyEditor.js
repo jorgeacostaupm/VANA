@@ -1,9 +1,11 @@
 import * as d3 from "d3";
+import { CHART_OUTLINE, CHART_OUTLINE_MUTED } from "@/utils/chartTheme";
 
 import { setNavioColumns } from "@/store/slices/dataSlice";
 import { aggregateSelectedNodes, changeOrder } from "@/store/slices/metaSlice";
 import {
   changeRelationship,
+  removeAttribute,
   toggleAttribute,
 } from "@/store/async/metaAsyncReducers";
 import store from "@/store/store";
@@ -22,27 +24,70 @@ const dtypeColors = {
 };
 
 function colorNode(node) {
+  if (node?.data?.isActive === false) {
+    return "var(--color-surface-muted)";
+  }
   const dtype = node.data?.dtype || "none";
   return dtypeColors[dtype];
 }
 
 const transitionDuration = 800;
+const nodeHalfSize = 12.5;
+const nodeCornerRadius = 4;
+const triangleTopFactor = 1.152;
+const triangleBottomFactor = 0.576;
 const assignRadius = 40;
-const curvature = 1;
-const maxString = 20;
-const horizontalDistance = maxString * 15;
-const compressionFactor = 1.5;
-const nodeSize = 60;
-const spacing = horizontalDistance * compressionFactor;
+const allowedLinkStyles = new Set(["smooth", "elbow", "straight"]);
+const defaultViewConfig = Object.freeze({
+  nodeSize: 60,
+  depthSpacing: 240,
+  nodeScale: 1,
+  labelFontSize: 24,
+  labelMaxLength: 20,
+  linkWidth: 1,
+  showLabels: true,
+});
+
+const clampNumber = (value, min, max, fallback) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return fallback;
+  return Math.min(max, Math.max(min, numericValue));
+};
+
+const getNodeLabel = (node) =>
+  node?.data?.name || node?.name || `Node #${node?.id ?? "unknown"}`;
+
+const formatPreview = (items, max = 8) => {
+  if (!Array.isArray(items) || items.length === 0) return "-";
+  const preview = items.slice(0, max);
+  const remaining = items.length - preview.length;
+  return remaining > 0
+    ? `${preview.join(", ")} (+${remaining} more)`
+    : preview.join(", ");
+};
+
+const getErrorMessage = (error, fallback = "Unknown error") => {
+  if (typeof error === "string" && error.trim().length > 0) return error;
+  if (error?.message && String(error.message).trim().length > 0) {
+    return error.message;
+  }
+  return fallback;
+};
 
 export default class D3HierarchyEditor {
   orientation = "horizontal";
+  linkStyle = "smooth";
+  viewConfig = defaultViewConfig;
   targetNode = null;
   nodesDragged = [];
 
-  constructor(container, data, dispatcher) {
+  constructor(container, data, dispatcher, options = {}) {
     this.containerRef = container;
     this.dispatcher = dispatcher;
+    this.viewConfig = this.normalizeViewConfig(options.viewConfig);
+
+    if (options.orientation) this.setOrientation(options.orientation);
+    if (options.linkStyle) this.setLinkStyle(options.linkStyle);
 
     this.descriptions = store.getState().cantab.present.descriptions;
     this.dims = container.getBoundingClientRect();
@@ -53,7 +98,7 @@ export default class D3HierarchyEditor {
 
     this.svg = d3.select(this.containerRef);
 
-    this.svg.on("contextmenu", (event, node) => {
+    this.svg.on("contextmenu", (event) => {
       publish("untoggleEvent", {});
       publish("closeResultsEvent", {});
       publish("closeOptionMenu", {});
@@ -62,14 +107,14 @@ export default class D3HierarchyEditor {
     });
 
     this.svg
-      .on("click", (event, node) => {
+      .on("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         publish("untoggleEvent", {});
         publish("closeResultsEvent", {});
         publish("closeOptionMenu", {});
       })
-      .on("contextmenu", (event, node) => {
+      .on("contextmenu", (event) => {
         event.preventDefault();
         event.stopPropagation();
 
@@ -80,7 +125,7 @@ export default class D3HierarchyEditor {
 
     d3.select(window).on("keydown", (event) => {
       if (event.key === "b" || event.key === "B") {
-        this.svg.append("g").attr("class", "brush").call(this.brush);
+        this.activateBrushSelection();
       }
     });
 
@@ -110,13 +155,13 @@ export default class D3HierarchyEditor {
       ? this.main.select("g#links")
       : this.main.append("g").attr("id", "links");
 
-    const gnode = this.main.select("g#nodes").node()
+    this.main.select("g#nodes").node()
       ? this.main.select("g#nodes")
       : this.main.append("g").attr("id", "nodes");
 
     glink
       .attr("fill", "none")
-      .attr("stroke", "grey")
+      .attr("stroke", CHART_OUTLINE_MUTED)
       .attr("stroke-opacity", 1)
       .attr("stroke-width");
     this.addSubscriptions();
@@ -145,34 +190,27 @@ export default class D3HierarchyEditor {
   }
 
   getLinkPath(link) {
-    const sx = link.source.x;
-    const sy = link.source.y;
-    const tx = link.target.x;
-    const ty = link.target.y;
+    const [sx, sy, tx, ty] = this.getProjectedLinkCoords(link);
 
-    if (this.isHorizontal()) {
-      const controlPointX1 = sy + (ty - sy) * curvature;
-      const controlPointY1 = sx;
-
-      const controlPointX2 = ty - (ty - sy) * curvature;
-      const controlPointY2 = tx;
-
-      return `
-        M${sy},${sx}
-        C${controlPointX1},${controlPointY1} ${controlPointX2},${controlPointY2} ${ty},${tx}
-      `;
+    if (this.linkStyle === "straight") {
+      return `M${sx},${sy}L${tx},${ty}`;
     }
 
-    const controlPointY1 = sy + (ty - sy) * curvature;
-    const controlPointX1 = sx;
+    if (this.linkStyle === "elbow") {
+      const midX = (sx + tx) / 2;
+      return `M${sx},${sy}L${midX},${sy}L${midX},${ty}L${tx},${ty}`;
+    }
 
-    const controlPointY2 = ty - (ty - sy) * curvature;
-    const controlPointX2 = tx;
+    const controlPointX = sx + (tx - sx) * 0.5;
+    return `M${sx},${sy}C${controlPointX},${sy} ${controlPointX},${ty} ${tx},${ty}`;
+  }
 
-    return `
-      M${sx},${sy}
-      C${controlPointX1},${controlPointY1} ${controlPointX2},${controlPointY2} ${tx},${ty}
-    `;
+  getProjectedLinkCoords(link) {
+    if (this.isHorizontal()) {
+      return [link.source.y, link.source.x, link.target.y, link.target.x];
+    }
+
+    return [link.source.x, link.source.y, link.target.x, link.target.y];
   }
 
   getLogicalDelta(dx, dy) {
@@ -194,6 +232,96 @@ export default class D3HierarchyEditor {
       .scale(scale);
   }
 
+  normalizeViewConfig(viewConfig = {}) {
+    return {
+      nodeSize: clampNumber(
+        viewConfig.nodeSize,
+        36,
+        140,
+        defaultViewConfig.nodeSize,
+      ),
+      depthSpacing: clampNumber(
+        viewConfig.depthSpacing,
+        120,
+        420,
+        defaultViewConfig.depthSpacing,
+      ),
+      nodeScale: clampNumber(
+        viewConfig.nodeScale,
+        0.6,
+        1.8,
+        defaultViewConfig.nodeScale,
+      ),
+      labelFontSize: clampNumber(
+        viewConfig.labelFontSize,
+        12,
+        40,
+        defaultViewConfig.labelFontSize,
+      ),
+      labelMaxLength: clampNumber(
+        viewConfig.labelMaxLength,
+        8,
+        60,
+        defaultViewConfig.labelMaxLength,
+      ),
+      linkWidth: clampNumber(
+        viewConfig.linkWidth,
+        1,
+        6,
+        defaultViewConfig.linkWidth,
+      ),
+      showLabels:
+        typeof viewConfig.showLabels === "boolean"
+          ? viewConfig.showLabels
+          : defaultViewConfig.showLabels,
+    };
+  }
+
+  getNodeHalfSize() {
+    return nodeHalfSize * this.viewConfig.nodeScale;
+  }
+
+  getNodeCornerRadius() {
+    return nodeCornerRadius * this.viewConfig.nodeScale;
+  }
+
+  getNodeTrianglePath() {
+    const halfSize = this.getNodeHalfSize();
+    const top = -(halfSize * triangleTopFactor);
+    const bottom = halfSize * triangleBottomFactor;
+    return `M 0 ${top} L ${halfSize} ${bottom} L ${-halfSize} ${bottom} Z`;
+  }
+
+  getAssignRadius() {
+    return assignRadius * this.viewConfig.nodeScale;
+  }
+
+  getLabelOffset() {
+    return -(this.getNodeHalfSize() + 15.5);
+  }
+
+  getLabelText(node) {
+    const label = node?.data?.name ?? "";
+    const maxLength = Math.round(this.viewConfig.labelMaxLength);
+    if (label.length <= maxLength) return label;
+    return `${label.slice(0, Math.max(1, maxLength - 1))}...`;
+  }
+
+  setViewConfig(viewConfig) {
+    const nextViewConfig = this.normalizeViewConfig(viewConfig);
+    const hasChanges = Object.keys(defaultViewConfig).some(
+      (key) => this.viewConfig[key] !== nextViewConfig[key],
+    );
+
+    if (!hasChanges) return;
+
+    this.viewConfig = nextViewConfig;
+
+    if (!this.root) return;
+
+    this.drawHierarchy(this.root, true);
+  }
+
   setOrientation(orientation) {
     const nextOrientation =
       orientation === "vertical" ? "vertical" : "horizontal";
@@ -209,6 +337,26 @@ export default class D3HierarchyEditor {
     this.root.y0 = 0;
 
     this.drawHierarchy(this.root, true);
+  }
+
+  setLinkStyle(linkStyle) {
+    const nextLinkStyle = allowedLinkStyles.has(linkStyle)
+      ? linkStyle
+      : "smooth";
+
+    if (this.linkStyle === nextLinkStyle) return;
+
+    this.linkStyle = nextLinkStyle;
+
+    if (!this.root) return;
+
+    this.drawLinks(this.root);
+  }
+
+  activateBrushSelection() {
+    if (!this.svg || !this.brush) return;
+    this.svg.selectAll(".brush").remove();
+    this.svg.append("g").attr("class", "brush").call(this.brush);
   }
 
   setSize() {
@@ -227,7 +375,7 @@ export default class D3HierarchyEditor {
     const crossSize = this.isHorizontal() ? dims.height : dims.width;
     root.x0 = crossSize / 2;
     root.y0 = 0;
-    root.descendants().forEach((d, i) => {
+    root.descendants().forEach((d) => {
       d.id = d.data.id;
       if (d.children == null) {
         d.children = [];
@@ -238,7 +386,6 @@ export default class D3HierarchyEditor {
       }
 
       if (d.data.isShown) {
-        d.children = d.children;
         d._children = null;
       } else {
         d._children = d.children;
@@ -263,11 +410,12 @@ export default class D3HierarchyEditor {
   drawHierarchy(source, instant = false) {
     console.log("drawHierarchy");
     const { root } = this;
-    const treeLayout = d3.tree().nodeSize([nodeSize, nodeSize]);
+    const siblingSpacing = this.viewConfig.nodeSize;
+    const treeLayout = d3.tree().nodeSize([siblingSpacing, siblingSpacing]);
     treeLayout(root);
 
     root.descendants().forEach((node) => {
-      node.y = node.depth * spacing;
+      node.y = node.depth * this.viewConfig.depthSpacing;
     });
 
     this.drawNodes(source, instant);
@@ -311,44 +459,45 @@ export default class D3HierarchyEditor {
             const nChildren =
               (d.children?.length ?? 0) + (d._children?.length ?? 0);
             const fill = colorNode(d);
+            const halfSize = graph.getNodeHalfSize();
 
             if (type === "aggregation" && nChildren === 0) {
               group
                 .append("path")
                 .attr("class", "showCircle")
-                .attr("d", "M 0 -14.4 L 12.5 7.2 L -12.5 7.2 Z")
+                .attr("d", graph.getNodeTrianglePath())
                 .attr("fill", fill);
             } else if (type === "aggregation" || type === "root") {
               group
                 .append("rect")
                 .attr("class", "showCircle")
-                .attr("x", -12.5)
-                .attr("y", -12.5)
-                .attr("width", 25)
-                .attr("height", 25)
-                .attr("rx", 4)
+                .attr("x", -halfSize)
+                .attr("y", -halfSize)
+                .attr("width", halfSize * 2)
+                .attr("height", halfSize * 2)
+                .attr("rx", graph.getNodeCornerRadius())
                 .attr("fill", fill);
             } else {
               group
                 .append("circle")
                 .attr("class", "showCircle")
-                .attr("r", 12.5)
+                .attr("r", halfSize)
                 .attr("fill", fill);
             }
 
             if (d._children && !d.children) {
               group
                 .select(".showCircle")
-                .attr("stroke", "black")
-                .attr("stroke-width", 2);
+                .attr("stroke", CHART_OUTLINE)
+                .attr("stroke-width", 2 * graph.viewConfig.nodeScale);
             }
           });
 
           g.append("circle")
             .attr("class", "ghostCircle")
-            .attr("r", assignRadius)
+            .attr("r", this.getAssignRadius())
             .attr("opacity", 0.2)
-            .attr("fill", "red")
+            .attr("fill", "var(--color-brand)")
             .attr("fill-opacity", 0)
             .attr("pointer-events", "all")
             .on("mouseover", function (event, node) {
@@ -374,26 +523,16 @@ export default class D3HierarchyEditor {
 
           g.append("text")
             .attr("dy", "0.3em")
-            .attr("x", (node) =>
-              node.id === graph.root.id
-                ? -30
-                : node.children?.length >= 2
-                  ? 0
-                  : 25,
-            )
-            .attr("y", (d) => (d.id !== graph.root.id && d.children ? -25 : 0))
+            .attr("x", 0)
+            .attr("y", this.getLabelOffset())
             .attr("text-anchor", "middle")
-            .style("font-size", "24px")
-            .text((node) =>
-              node.data.name.length < maxString
-                ? node.data.name
-                : node.data.name.slice(0, maxString - 1) + "...",
-            )
-            .style("fill", "#000") // color del texto
-            .style("stroke", "#fff") // color del borde
-            .style("stroke-width", 10) // grosor del borde
-            .style("stroke-linejoin", "round") // esquinas redondeadas
-            .style("paint-order", "stroke"); // pinta el borde “debajo” del fill
+            .style("font-size", `${Math.round(this.viewConfig.labelFontSize)}px`)
+            .text((node) => graph.getLabelText(node))
+            .style("fill", "var(--color-ink)")
+            .style("stroke", "var(--color-surface)")
+            .style("stroke-width", 3)
+            .style("stroke-linejoin", "round")
+            .style("paint-order", "stroke");
 
           return g;
         },
@@ -408,14 +547,34 @@ export default class D3HierarchyEditor {
             .remove(),
       );
 
+    const currentNodeHalfSize = this.getNodeHalfSize();
+    const currentCornerRadius = this.getNodeCornerRadius();
+
+    gnode.selectAll("circle.showCircle").attr("r", currentNodeHalfSize);
+    gnode
+      .selectAll("rect.showCircle")
+      .attr("x", -currentNodeHalfSize)
+      .attr("y", -currentNodeHalfSize)
+      .attr("width", currentNodeHalfSize * 2)
+      .attr("height", currentNodeHalfSize * 2)
+      .attr("rx", currentCornerRadius);
+    gnode.selectAll("path.showCircle").attr("d", this.getNodeTrianglePath());
+    gnode.selectAll(".ghostCircle").attr("r", this.getAssignRadius());
+
     gnode
       .select(".showCircle")
+      .attr("fill", (d) => colorNode(d))
+      .attr("fill-opacity", (d) => (d.data?.isActive === false ? 0.55 : 1))
       .attr("stroke", (d) => {
-        return (d._children && !d.children) || d.data.name === "Root"
-          ? "black"
+        return (
+          (d._children && !d.children) ||
+          d.data?.type === "root" ||
+          d.data?.id === 0
+        )
+          ? CHART_OUTLINE
           : "none";
       })
-      .attr("stroke-width", 2);
+      .attr("stroke-width", 2 * this.viewConfig.nodeScale);
 
     gnode
       .transition()
@@ -428,11 +587,22 @@ export default class D3HierarchyEditor {
 
     gnode
       .select("text")
+      .text((d) => this.getLabelText(d))
       .attr("x", 0)
-      .attr("y", -28)
+      .attr("y", this.getLabelOffset())
       .attr("text-anchor", isHorizontal ? "middle" : "start")
       .attr("transform", isHorizontal ? null : "rotate(-25)")
-      .attr("stroke", "white");
+      .style("font-size", `${Math.round(this.viewConfig.labelFontSize)}px`)
+      .attr("stroke", "var(--color-surface)")
+      .attr("display", this.viewConfig.showLabels ? null : "none")
+      .style("fill", (d) =>
+        d.data?.isActive === false
+          ? "var(--color-ink-tertiary)"
+          : "var(--color-ink)",
+      )
+      .attr("text-decoration", (d) =>
+        d.data?.isActive === false ? "line-through" : null,
+      );
   }
 
   drawLinks(source, instant = false) {
@@ -448,9 +618,9 @@ export default class D3HierarchyEditor {
       .enter()
       .append("path")
       .attr("class", "link")
-      .attr("stroke", "grey")
+      .attr("stroke", CHART_OUTLINE_MUTED)
       .attr("stroke-opacity", 1)
-      .attr("stroke-width", 1)
+      .attr("stroke-width", this.viewConfig.linkWidth)
       .attr("d", () => {
         const o = { x: source.x0 ?? source.x, y: source.y0 ?? source.y };
         return this.getLinkPath({ source: o, target: o });
@@ -458,6 +628,7 @@ export default class D3HierarchyEditor {
 
     glink
       .merge(enterLinks)
+      .attr("stroke-width", this.viewConfig.linkWidth)
       .transition()
       .duration(instant ? 0 : transitionDuration)
       .attr("d", (d) => this.getLinkPath(d));
@@ -466,7 +637,7 @@ export default class D3HierarchyEditor {
       .exit()
       .transition()
       .duration(instant ? 0 : transitionDuration)
-      .attr("d", (d) => {
+      .attr("d", () => {
         const o = { x: source.x, y: source.y };
         return this.getLinkPath({ source: o, target: o });
       })
@@ -594,8 +765,8 @@ export default class D3HierarchyEditor {
 
             graph._dragSiblingMinX = Math.min(...xs);
             graph._dragSiblingMaxX = Math.max(...xs);
-            graph._dragSiblingMinY = Math.min(...ys) - spacing;
-            graph._dragSiblingMaxY = Math.max(...ys) + spacing;
+            graph._dragSiblingMinY = Math.min(...ys) - graph.viewConfig.depthSpacing;
+            graph._dragSiblingMaxY = Math.max(...ys) + graph.viewConfig.depthSpacing;
 
             graph._dragOriginalIndex = graph._dragSiblingXPositions.indexOf(
               node.x,
@@ -814,7 +985,7 @@ export default class D3HierarchyEditor {
     const nodesToMove = isMultiSelect
       ? this.svg
           .selectAll(".circleG")
-          .filter(function (d) {
+          .filter(function () {
             return d3
               .select(this)
               .select(".showCircle")
@@ -907,14 +1078,14 @@ export default class D3HierarchyEditor {
     // se cogen los nodos que esten seleccionados
     this.nodesDragged = this.svg
       .selectAll(".circleG")
-      .filter(function (d) {
+      .filter(function () {
         return d3.select(this).select(".showCircle").classed("selectedNode");
       })
       .data();
 
     const nodesToMove = this.svg
       .selectAll(".circleG")
-      .filter(function (d) {
+      .filter(function () {
         return d3.select(this).select(".showCircle").classed("selectedNode");
       })
       .data();
@@ -979,17 +1150,25 @@ export default class D3HierarchyEditor {
   setNavioNodes() {
     console.log("setNavioNodes");
     let attributes = [];
-    const addAttribute = (n) => {
-      if (n.data.id !== 0 && n.children == null) attributes.push(n.data.name);
+    const addAttribute = (n, hasInactiveAncestor = false) => {
+      const isActive = n?.data?.isActive !== false;
+      const isAvailable = !hasInactiveAncestor && isActive;
+
+      if (isAvailable && n.data.id !== 0 && n.children == null) {
+        attributes.push(n.data.name);
+      }
 
       if (n._children != null) return;
-      if (n.children != null) n.children.forEach(addAttribute);
+      if (n.children != null) {
+        n.children.forEach((child) => addAttribute(child, !isAvailable));
+      }
     };
 
-    this.root.children?.forEach(addAttribute);
+    this.root.children?.forEach((child) => addAttribute(child, false));
     const attrs = store.getState().metadata.attributes;
     const columns = attributes.filter((attr) => {
       const complete_attr = attrs.find((a) => a.name === attr);
+      if (!complete_attr || complete_attr.isActive === false) return false;
       if (complete_attr.type != "aggregation") return true;
       else if (complete_attr.info?.exec && complete_attr.info?.formula !== "")
         return true;
@@ -1012,10 +1191,10 @@ export default class D3HierarchyEditor {
     );
   }
 
-  addSelectedNodes({ parent }) {
+  async addSelectedNodes({ parent }) {
     const selectedNodes = this.svg
       .selectAll(".circleG")
-      .filter(function (d) {
+      .filter(function () {
         return d3.select(this).select(".showCircle").classed("selectedNode");
       })
       .data();
@@ -1032,23 +1211,164 @@ export default class D3HierarchyEditor {
       if (!mods.includes(o)) mods.push(o);
     });
 
-    const toApply = mods.filter(
-      (d) => d.id !== parent && !d.descendants().some((nd) => nd.id === parent),
-    );
+    const toApply = [];
+    const failed = [];
 
-    if (toApply.length === 0) return;
-
-    toApply.forEach((d) => {
-      this.dispatcher(
-        changeRelationship({
-          sourceID: d.id,
-          targetID: parent,
-          recover: false,
-        }),
-      );
+    mods.forEach((d) => {
+      const nodeName = getNodeLabel(d);
+      if (d.id === parent || d.descendants().some((nd) => nd.id === parent)) {
+        failed.push(
+          `${nodeName}: cannot move into itself or one of its descendants.`,
+        );
+        return;
+      }
+      toApply.push(d);
     });
 
+    for (const d of toApply) {
+      const nodeName = getNodeLabel(d);
+      try {
+        await this.dispatcher(
+          changeRelationship({
+            sourceID: d.id,
+            targetID: parent,
+            recover: false,
+            silent: true,
+          }),
+        ).unwrap();
+      } catch (error) {
+        failed.push(`${nodeName}: ${getErrorMessage(error)}`);
+      }
+    }
+
+    if (failed.length > 0) {
+      publish("notification", {
+        message:
+          failed.length === mods.length
+            ? "Cannot add selected nodes"
+            : "Selection moved with warnings",
+        description: `Failed (${failed.length}): ${formatPreview(failed, 4)}`,
+        type: failed.length === mods.length ? "error" : "warning",
+        pauseOnHover: true,
+        duration: 6,
+      });
+    }
+
+    if (toApply.length > 0 || failed.length > 0) {
+      this.svg.selectAll(".showCircle").classed("selectedNode", false);
+    }
+  }
+
+  async removeSelectedNodes() {
+    const selectedNodes = this.svg
+      .selectAll(".circleG")
+      .filter(function () {
+        return d3.select(this).select(".showCircle").classed("selectedNode");
+      })
+      .data();
+
+    if (selectedNodes.length === 0) {
+      publish("notification", {
+        message: "No nodes selected",
+        description: "Select one or more nodes to delete them.",
+        type: "info",
+      });
+      return;
+    }
+
+    const deletableNodes = selectedNodes.filter(
+      (node) => node.id !== 0 && node.id !== this.root?.id,
+    );
+
+    if (deletableNodes.length === 0) {
+      publish("notification", {
+        message: "Cannot delete selection",
+        description: "The root node cannot be deleted.",
+        type: "warning",
+      });
+      return;
+    }
+
+    const nodeNames = deletableNodes.map((node) => getNodeLabel(node));
+    const shouldDelete = window.confirm(
+      `You are going to delete ${deletableNodes.length} selected node${
+        deletableNodes.length === 1 ? "" : "s"
+      }.\n\n${formatPreview(nodeNames, 4)}\n\nThis action cannot be undone.`,
+    );
+
+    if (!shouldDelete) return;
+
+    const failed = [];
+    let deletedCount = 0;
+
+    const sortedNodes = deletableNodes
+      .slice()
+      .sort(
+        (a, b) =>
+          (b.ancestors?.()?.length ?? 0) - (a.ancestors?.()?.length ?? 0),
+      );
+
+    const getDeletePrecheckError = (nodeId) => {
+      const attributes = store.getState().metadata.attributes;
+      if (!Array.isArray(attributes)) {
+        return "Metadata attributes are not available.";
+      }
+
+      const currentNode = attributes.find((n) => n.id === nodeId);
+      if (!currentNode) return "Node no longer exists.";
+
+      const parentNode = attributes.find((n) => n.related.includes(nodeId));
+      if (!parentNode) return "Current parent not found in hierarchy.";
+
+      const isUsed = parentNode.info?.usedAttributes?.find(
+        (used) => used.id === nodeId,
+      );
+      if (isUsed) return "Node is part of an existing aggregation.";
+
+      return null;
+    };
+
+    for (const node of sortedNodes) {
+      const precheckError = getDeletePrecheckError(node.id);
+      if (precheckError) {
+        failed.push(`${getNodeLabel(node)}: ${precheckError}`);
+        continue;
+      }
+
+      try {
+        await this.dispatcher(
+          removeAttribute({ attributeID: node.id }),
+        ).unwrap();
+        deletedCount += 1;
+      } catch (error) {
+        failed.push(`${getNodeLabel(node)}: ${getErrorMessage(error)}`);
+      }
+    }
+
     this.svg.selectAll(".showCircle").classed("selectedNode", false);
+
+    if (failed.length === 0) {
+      publish("notification", {
+        message: "Selection deleted",
+        description: `Deleted (${deletedCount}): ${formatPreview(nodeNames, 6)}`,
+        type: "success",
+      });
+      return;
+    }
+
+    publish("notification", {
+      message:
+        deletedCount === 0
+          ? "Cannot delete selected nodes"
+          : "Selection deleted with warnings",
+      description:
+        deletedCount === 0
+          ? `Failed (${failed.length}): ${formatPreview(failed, 4)}`
+          : `Deleted ${deletedCount}/${deletableNodes.length}. Failed (${failed.length}): ${formatPreview(failed, 4)}`,
+      type: deletedCount === 0 ? "error" : "warning",
+      pauseOnHover: true,
+      duration: 6,
+    });
   }
 
   getBrush() {
@@ -1087,15 +1407,11 @@ export default class D3HierarchyEditor {
       });
 
       if (nodesInside.length === 0) {
-        b;
         removeBrush();
         return;
       }
 
-      // Primero, quitar la selección de todos los nodos
-      vis.svg.selectAll(".circleG .showCircle").classed("selectedNode", false);
-
-      // Seleccionar solo los nodos dentro del brush
+      // Acumular selección: mantener los nodos ya seleccionados y agregar los del brush actual
       nodesInside.forEach((node) => {
         vis.svg
           .selectAll(".circleG")
@@ -1188,7 +1504,7 @@ export default class D3HierarchyEditor {
 
     const selectedNodes = this.svg
       .selectAll(".circleG")
-      .filter(function (d) {
+      .filter(function () {
         return d3.select(this).select(".showCircle").classed("selectedNode");
       })
       .data();
@@ -1205,14 +1521,40 @@ export default class D3HierarchyEditor {
       if (!mods.includes(o)) mods.push(o);
     });
 
-    const childIDs = mods
-      .filter(
-        (d) =>
-          d.id !== parent && !d.descendants().some((nd) => nd.id === parent),
-      )
-      .map((d) => d.id);
+    const attributes = store.getState().metadata.attributes || [];
+    const childIDs = [];
+    const failed = [];
 
-    if (childIDs.length === 0) return;
+    mods.forEach((d) => {
+      const nodeName = getNodeLabel(d);
+      if (d.id === parent || d.descendants().some((nd) => nd.id === parent)) {
+        failed.push(
+          `${nodeName}: cannot aggregate into itself or one of its descendants.`,
+        );
+        return;
+      }
+
+      const hasParent = attributes.some((n) => n.related.includes(d.id));
+      if (!hasParent) {
+        failed.push(`${nodeName}: current parent not found in hierarchy.`);
+        return;
+      }
+
+      childIDs.push(d.id);
+    });
+
+    if (childIDs.length === 0) {
+      if (failed.length > 0) {
+        publish("notification", {
+          message: "Cannot aggregate selection",
+          description: `Failed (${failed.length}): ${formatPreview(failed, 4)}`,
+          type: "error",
+          pauseOnHover: true,
+          duration: 6,
+        });
+      }
+      return;
+    }
 
     this.dispatcher(
       aggregateSelectedNodes({
@@ -1223,6 +1565,16 @@ export default class D3HierarchyEditor {
       }),
     );
     this.svg.selectAll(".showCircle").classed("selectedNode", false);
+
+    if (failed.length > 0) {
+      publish("notification", {
+        message: "Aggregation completed with warnings",
+        description: `Failed (${failed.length}): ${formatPreview(failed, 4)}`,
+        type: "warning",
+        pauseOnHover: true,
+        duration: 6,
+      });
+    }
   }
 
   inspectNode({ nodeId }) {
@@ -1282,6 +1634,7 @@ export default class D3HierarchyEditor {
   addSubscriptions() {
     subscribe("addSelectedNodes", this.addSelectedNodes.bind(this));
     subscribe("aggregateSelectedNodes", this.aggregateSelectedNodes.bind(this));
+    subscribe("removeSelectedNodes", this.removeSelectedNodes.bind(this));
     subscribe("focusNode", this.focusNode.bind(this));
     subscribe("inspectNode", this.inspectNode.bind(this));
   }

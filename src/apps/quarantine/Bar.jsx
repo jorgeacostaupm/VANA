@@ -10,7 +10,7 @@ import styles from "@/styles/ChartBar.module.css";
 
 export default function Bar({ title, config, updateConfig }) {
   return (
-    <div className={styles.chartBar}>
+    <div className={styles.chartBar} data-view-bar>
       <div className={styles.chartTitle}>{title}</div>
 
       <div className={styles.right}>

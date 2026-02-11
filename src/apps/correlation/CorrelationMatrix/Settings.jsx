@@ -1,6 +1,6 @@
 import React from "react";
 import { useSelector } from "react-redux";
-import { Button, Select, Typography, InputNumber, Slider, Switch } from "antd";
+import { Button, Select, Typography, InputNumber, Slider } from "antd";
 import { getTopCorrelations } from "@/utils/functionsCorrelation";
 import {
   COLOR_SCALES,
@@ -60,9 +60,6 @@ export default function Settings({ config, setConfig, params, setParams }) {
       colorScale,
     }));
   };
-
-  const update = (field, value) =>
-    setConfig((prev) => ({ ...prev, [field]: value }));
 
   return (
     <div className={panelStyles.panel}>
@@ -142,13 +139,6 @@ export default function Settings({ config, setConfig, params, setParams }) {
               label: item.label,
             }))}
             className={panelStyles.control}
-          />
-        </div>
-        <div className={panelStyles.row}>
-          <Text className={panelStyles.label}>Show legend</Text>
-          <Switch
-            checked={config.showLegend}
-            onChange={(v) => update("showLegend", v)}
           />
         </div>
       </div>

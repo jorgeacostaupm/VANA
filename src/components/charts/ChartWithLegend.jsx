@@ -18,7 +18,7 @@ export default function ChartWithLegend({
       />
 
       <div className={showLegend ? styles.legend : styles.legendHidden}>
-        <svg ref={legendRef} id={`${id}-legend`} />
+        <svg ref={legendRef} id={`${id}-legend`} className={styles.legendSvg} />
       </div>
     </div>
   );

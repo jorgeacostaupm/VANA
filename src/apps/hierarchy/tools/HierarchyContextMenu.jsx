@@ -11,12 +11,18 @@ import {
   NodeCollapseOutlined,
   ExperimentFilled,
   ExperimentOutlined,
+  CheckCircleOutlined,
+  MinusCircleOutlined,
 } from "@ant-design/icons";
 
 import { pubsub } from "@/utils/pubsub";
 import buttonStyles from "@/styles/Buttons.module.css";
 import styles from "@/styles/Charts.module.css";
 import { addAttribute, removeAttribute } from "@/store/async/metaAsyncReducers";
+import {
+  setNodeOverviewAccess,
+  setNodesOverviewAccess,
+} from "@/store/slices/metaSlice";
 import { getRandomInt } from "@/utils/functions";
 import OperationModal from "./OperationModal";
 
@@ -110,6 +116,59 @@ export default function HierarchyContextMenu({ editor }) {
     publish("untoggleEvent");
   };
 
+  const toggleNodeOverviewAccess = () => {
+    if (!node) return;
+
+    const isRootNode = node?.data?.type === "root" || node?.id === 0;
+    if (isRootNode) return;
+
+    const currentIsActive = node?.data?.isActive !== false;
+    const nextIsActive = !currentIsActive;
+    const nodeLabel = node?.data?.name || node?.name || `Node #${node.id}`;
+
+    dispatch(
+      setNodeOverviewAccess({ nodeId: node.id, isActive: nextIsActive }),
+    );
+    publish("notification", {
+      message: nextIsActive
+        ? "Node activated in Overview"
+        : "Node deactivated in Overview",
+      description: nextIsActive
+        ? `${nodeLabel} is now available in Overview.`
+        : `${nodeLabel} will not be accessible from Overview.`,
+      type: "success",
+    });
+    setActive(false);
+  };
+
+  const toggleSelectionOverviewAccess = () => {
+    const nodes = getSelectedNodes();
+    if (nodes.length === 0) return;
+
+    const selectableNodes = nodes.filter((n) => {
+      const nodeType = n?.data?.type || n?.type;
+      return nodeType !== "root" && n?.id !== 0;
+    });
+
+    if (selectableNodes.length === 0) return;
+
+    const allInactive = selectableNodes.every(
+      (n) => n?.data?.isActive === false,
+    );
+    const nextIsActive = allInactive;
+    const nodeIds = selectableNodes.map((n) => n.id);
+
+    dispatch(setNodesOverviewAccess({ nodeIds, isActive: nextIsActive }));
+    publish("notification", {
+      message: nextIsActive
+        ? "Selection activated in Overview"
+        : "Selection hidden in Overview",
+      description: `${nodeIds.length} node${nodeIds.length === 1 ? "" : "s"} updated.`,
+      type: "success",
+    });
+    setActive(false);
+  };
+
   const aggregateSelectedNodes = () => {
     if (!node?.parent) return;
 
@@ -125,6 +184,11 @@ export default function HierarchyContextMenu({ editor }) {
     if (!node) return;
 
     publish("addSelectedNodes", { parent: node.id });
+    setActive(false);
+  };
+
+  const removeSelectedNodes = () => {
+    publish("removeSelectedNodes");
     setActive(false);
   };
 
@@ -148,7 +212,18 @@ export default function HierarchyContextMenu({ editor }) {
 
   const nodeName = node?.data?.name || node?.name || "Node";
   const nodeType = node?.data?.type || "node";
-  const selectionCount = hasSelectedNodes ? getSelectedNodes().length : 0;
+  const isNodeActive = node?.data?.isActive !== false;
+  const isRootNode = nodeType === "root" || node?.id === 0;
+  const selectedNodesInMenu = hasSelectedNodes ? getSelectedNodes() : [];
+  const selectionCount = selectedNodesInMenu.length;
+  const selectionToggleableNodes = selectedNodesInMenu.filter((n) => {
+    const selectedType = n?.data?.type || n?.type;
+    return selectedType !== "root" && n?.id !== 0;
+  });
+  const hasToggleableSelection = selectionToggleableNodes.length > 0;
+  const isSelectionFullyInactive =
+    hasToggleableSelection &&
+    selectionToggleableNodes.every((n) => n?.data?.isActive === false);
 
   const MenuAction = ({ label, icon, onClick, danger, disabled }) => (
     <Button
@@ -176,9 +251,7 @@ export default function HierarchyContextMenu({ editor }) {
           <div className={styles.hierarchyMenuTitle}>{nodeName}</div>
           <div className={styles.hierarchyMenuMeta}>
             <span>{nodeType}</span>
-            {selectionCount > 0 && (
-              <span>{selectionCount} selected</span>
-            )}
+            {selectionCount > 0 && <span>{selectionCount} selected</span>}
           </div>
         </div>
 
@@ -203,6 +276,16 @@ export default function HierarchyContextMenu({ editor }) {
               />
             )}
             <MenuAction
+              label={
+                isNodeActive ? "Deactivate in Overview" : "Activate in Overview"
+              }
+              icon={
+                isNodeActive ? <MinusCircleOutlined /> : <CheckCircleOutlined />
+              }
+              onClick={toggleNodeOverviewAccess}
+              disabled={isRootNode}
+            />
+            <MenuAction
               label="Delete"
               icon={<DeleteOutlined />}
               onClick={removeNodeById}
@@ -226,6 +309,29 @@ export default function HierarchyContextMenu({ editor }) {
                 label="Operate"
                 icon={<ExperimentFilled />}
                 onClick={openModal}
+              />
+
+              <MenuAction
+                label={
+                  isSelectionFullyInactive
+                    ? "Show Selection in Overview"
+                    : "Hide Selection in Overview"
+                }
+                icon={
+                  isSelectionFullyInactive ? (
+                    <CheckCircleOutlined />
+                  ) : (
+                    <MinusCircleOutlined />
+                  )
+                }
+                onClick={toggleSelectionOverviewAccess}
+                disabled={!hasToggleableSelection}
+              />
+              <MenuAction
+                label="Delete Selection"
+                icon={<DeleteOutlined />}
+                onClick={removeSelectedNodes}
+                danger
               />
               <MenuAction
                 label="Add Selection"

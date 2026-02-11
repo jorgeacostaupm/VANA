@@ -48,7 +48,7 @@ export default function PCA({ id, remove }) {
 
   return (
     <ViewContainer
-      title={`PCA - ${params.variables.length} Variables`}
+      title={`PCA · ${params.variables.length} Variables`}
       svgIDs={[id, `${id}-legend`]}
       remove={remove}
       settings={

@@ -7,7 +7,7 @@ const { Text } = Typography;
 
 const { Option } = Select;
 
-const NodeAggregationConfig = ({ aggOp, children, vals, save }) => {
+const NodeAggregationConfig = ({ aggOp, nodes, vals, save }) => {
   const selectStyle = {
     flex: 1,
   };
@@ -40,15 +40,11 @@ const NodeAggregationConfig = ({ aggOp, children, vals, save }) => {
       </div>
 
       {vals.info == null || vals.info.operation !== "custom" ? (
-        <AggregateComponent nodes={children} aggOp={aggOp} save={save} />
+        <AggregateComponent nodes={nodes} aggOp={aggOp} save={save} />
       ) : null}
 
       {vals.info != null && vals.info.operation === "custom" ? (
-        <CustomAggregate
-          nodes={children}
-          formula={vals.info.formula}
-          save={save}
-        />
+        <CustomAggregate nodes={nodes} formula={vals.info.formula} save={save} />
       ) : null}
     </>
   );

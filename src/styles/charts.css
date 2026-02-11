@@ -3,26 +3,204 @@
 .tooltip {
   color: var(--color-ink);
   font-size: var(--font-size-sm);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  line-height: 1.4;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.98),
+    rgba(248, 250, 252, 0.98)
+  );
+  border: 1px solid var(--chart-border-strong);
+  border-radius: var(--radius-md);
   pointer-events: none;
   position: fixed;
   padding: var(--space-2) var(--space-3);
   transition: opacity 0.3s;
   z-index: 100;
   max-width: 500px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(6px);
 }
 
 .contextTooltip {
   position: fixed;
   pointer-events: auto;
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  background: var(--color-surface);
+  border: 1px solid var(--chart-border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-md);
 }
 
 .legendTitle {
   font-size: var(--font-size-lg);
   font-weight: 700;
+}
+
+/* Axes + labels */
+
+svg .domain {
+  stroke: var(--chart-axis);
+  stroke-width: 1.25px;
+  shape-rendering: crispEdges;
+}
+
+svg .tick line {
+  stroke: var(--chart-axis-muted);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+svg .tick text {
+  fill: var(--chart-axis);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+svg .xAxisLabel,
+svg .yAxisLabel,
+svg .sc-label,
+svg .x-labels,
+svg .y-labels {
+  fill: var(--chart-axis);
+  font-weight: 600;
+}
+
+svg .x-labels,
+svg .y-labels,
+svg .sc-label {
+  font-size: var(--font-size-xs);
+}
+
+/* Legends */
+
+.legend-group {
+  font-size: var(--font-size-sm);
+}
+
+.legend-label,
+.legend {
+  fill: var(--color-ink);
+}
+
+.legend-circle {
+  stroke: var(--chart-border-strong);
+  stroke-width: 1;
+}
+
+.legend-item:hover .legend-label {
+  fill: var(--chart-focus);
+}
+
+/* Common chart marks */
+
+rect.bar {
+  rx: 6px;
+  ry: 6px;
+  stroke: rgba(15, 23, 42, 0.15);
+  stroke-width: 0.6;
+  filter: drop-shadow(0 2px 6px rgba(15, 23, 42, 0.12));
+  transition: opacity var(--transition-fast), filter var(--transition-fast);
+}
+
+rect.histogram-bar {
+  rx: 4px;
+  ry: 4px;
+  transition: opacity var(--transition-fast);
+}
+
+rect.stacked-bar {
+  rx: 2px;
+  ry: 2px;
+  stroke: rgba(15, 23, 42, 0.08);
+  stroke-width: 0.5;
+  transition: opacity var(--transition-fast);
+}
+
+path.density {
+  fill-opacity: 0.6;
+  stroke: rgba(15, 23, 42, 0.2);
+  stroke-width: 1;
+}
+
+path.violin {
+  fill-opacity: 1;
+  stroke: rgba(15, 23, 42, 0.2);
+  stroke-width: 1;
+}
+
+.box {
+  fill-opacity: 1;
+  stroke-width: 1.5;
+  rx: 6px;
+  ry: 6px;
+}
+
+.dot,
+.dots,
+.obs-point,
+.mean,
+.mean-point,
+.effect-point {
+  stroke: rgba(15, 23, 42, 0.35);
+  stroke-width: 0.6;
+}
+
+.effect-bar,
+.ci-line,
+.cap-left,
+.cap-right,
+.box-whisker,
+.box-cap,
+.box-median,
+.stat-line {
+  stroke-linecap: round;
+}
+
+.evolution-line,
+.evolutionMeanLine {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rect-cell {
+  stroke: var(--chart-border);
+  stroke-width: 1;
+}
+
+svg .grid .tick line,
+.chart-grid-line,
+.grid-line {
+  pointer-events: none;
+  stroke-opacity: 0.7;
+  stroke-dasharray: 8 6;
+  stroke-linecap: butt;
+  transition:
+    stroke var(--transition-fast),
+    stroke-opacity var(--transition-fast),
+    stroke-width var(--transition-fast);
+}
+
+.grid-line-active {
+  stroke: var(--chart-grid-strong);
+  stroke-opacity: 1;
+  stroke-width: 2.4;
+}
+
+.grid-line {
+  stroke: var(--chart-grid);
+}
+
+.zero-line {
+  stroke-width: 1.4;
+}
+
+.stat-label {
+  fill: var(--chart-axis);
+  font-size: var(--font-size-xs);
 }
 
 .tick {

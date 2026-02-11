@@ -5,6 +5,11 @@ import { useSelector } from "react-redux";
 import { deepCopy, moveTooltip } from "@/utils/functions";
 import { numMargin, renderLegend } from "../Density/useDensity";
 import useResizeObserver from "@/hooks/useResizeObserver";
+import {
+  CHART_OUTLINE,
+  CHART_OUTLINE_MUTED,
+} from "@/utils/chartTheme";
+import { attachTickLabelGridHover } from "@/utils/gridInteractions";
 
 export default function useBoxplot({ chartRef, legendRef, data, config }) {
   const dimensions = useResizeObserver(chartRef);
@@ -66,8 +71,9 @@ export default function useBoxplot({ chartRef, legendRef, data, config }) {
 
     const y = d3.scaleLinear().domain(yDomain).nice().range([chartHeight, 0]);
 
+    let yGridG = null;
     if (showGrid) {
-      chart
+      yGridG = chart
         .append("g")
         .attr("class", "grid y-grid")
         .call(d3.axisLeft(y).ticks(5).tickSize(-chartWidth).tickFormat(""))
@@ -79,7 +85,14 @@ export default function useBoxplot({ chartRef, legendRef, data, config }) {
       .attr("transform", `translate(0,${chartHeight})`)
       .call(d3.axisBottom(x));
 
-    chart.append("g").call(d3.axisLeft(y));
+    const yAxisG = chart.append("g").call(d3.axisLeft(y).ticks(5));
+
+    if (showGrid && yGridG) {
+      attachTickLabelGridHover({
+        axisGroup: yAxisG,
+        gridGroup: yGridG,
+      });
+    }
 
     function computeBoxStats(values) {
       values = values.sort(d3.ascending);
@@ -141,12 +154,13 @@ export default function useBoxplot({ chartRef, legendRef, data, config }) {
 
       // ----- Box -----
       g.append("rect")
+        .attr("class", "box")
         .attr("x", 0)
         .attr("y", y(stats.q3))
         .attr("width", boxWidth)
         .attr("height", y(stats.q1) - y(stats.q3))
         .attr("fill", color(group))
-        .attr("stroke", "black")
+        .attr("stroke", CHART_OUTLINE)
         .on("mouseover", function (e) {
           tooltip
             .style("visibility", "visible")
@@ -170,42 +184,47 @@ export default function useBoxplot({ chartRef, legendRef, data, config }) {
 
       // ----- Median line -----
       g.append("line")
+        .attr("class", "box-median")
         .attr("x1", 0)
         .attr("x2", boxWidth)
         .attr("y1", y(stats.median))
         .attr("y2", y(stats.median))
-        .attr("stroke", "black")
+        .attr("stroke", CHART_OUTLINE)
         .attr("stroke-width", 2);
 
       // ----- Whiskers -----
       g.append("line")
+        .attr("class", "box-whisker")
         .attr("x1", boxWidth / 2)
         .attr("x2", boxWidth / 2)
         .attr("y1", y(stats.lower))
         .attr("y2", y(stats.q1))
-        .attr("stroke", "black");
+        .attr("stroke", CHART_OUTLINE);
 
       g.append("line")
+        .attr("class", "box-whisker")
         .attr("x1", boxWidth / 2)
         .attr("x2", boxWidth / 2)
         .attr("y1", y(stats.q3))
         .attr("y2", y(stats.upper))
-        .attr("stroke", "black");
+        .attr("stroke", CHART_OUTLINE);
 
       // ----- Whisker caps -----
       g.append("line")
+        .attr("class", "box-cap")
         .attr("x1", boxWidth * 0.2)
         .attr("x2", boxWidth * 0.8)
         .attr("y1", y(stats.lower))
         .attr("y2", y(stats.lower))
-        .attr("stroke", "black");
+        .attr("stroke", CHART_OUTLINE);
 
       g.append("line")
+        .attr("class", "box-cap")
         .attr("x1", boxWidth * 0.2)
         .attr("x2", boxWidth * 0.8)
         .attr("y1", y(stats.upper))
         .attr("y2", y(stats.upper))
-        .attr("stroke", "black");
+        .attr("stroke", CHART_OUTLINE);
 
       // ---- Scatter points with jitter ----
       g.selectAll(".point")
@@ -215,7 +234,7 @@ export default function useBoxplot({ chartRef, legendRef, data, config }) {
         .classed("hide", !showPoints)
         .attr("cx", (d) => boxWidth / 2 + d._jitter)
         .attr("cy", (d) => y(d.value))
-        .attr("fill", "grey")
+        .attr("fill", CHART_OUTLINE_MUTED)
         .attr("opacity", 0.7)
         .attr("r", pointSize)
         .on("mouseover", function (e, d) {
@@ -236,7 +255,7 @@ export default function useBoxplot({ chartRef, legendRef, data, config }) {
         .attr("cy", (d) => y(d.value))
         .attr("fill", "white")
         .attr("fill-opacity", 0.01)
-        .attr("stroke", "grey")
+        .attr("stroke", CHART_OUTLINE_MUTED)
         .attr("stroke-width", 1.5)
         .attr("opacity", 0.9)
         .attr("pointer-events", "all")
@@ -284,7 +303,7 @@ export default function useBoxplot({ chartRef, legendRef, data, config }) {
         .attr("y1", -crossSize)
         .attr("x2", crossSize)
         .attr("y2", crossSize)
-        .attr("stroke", "grey")
+        .attr("stroke", CHART_OUTLINE_MUTED)
         .attr("stroke-width", 1.5);
 
       extreme
@@ -293,12 +312,17 @@ export default function useBoxplot({ chartRef, legendRef, data, config }) {
         .attr("y1", crossSize)
         .attr("x2", crossSize)
         .attr("y2", -crossSize)
-        .attr("stroke", "grey")
+        .attr("stroke", CHART_OUTLINE_MUTED)
         .attr("stroke-width", 1.5);
     });
 
     if (showLegend !== false) {
       renderLegend(legend, selectionGroups, color, null, null, null, null);
+    }
+
+    if (showGrid && yGridG) {
+      yGridG.raise();
+      yAxisG.raise();
     }
   }, [data, dimensions, groups, selectionGroups, showPoints, showLegend, showGrid]);
 

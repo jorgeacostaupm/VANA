@@ -1,3 +1,11 @@
+.popoverOverlayFixed {
+  position: fixed !important;
+  top: var(--view-overlay-top) !important;
+  right: var(--view-overlay-right) !important;
+  left: auto !important;
+  bottom: auto !important;
+}
+
 .popoverOverlay :global(.ant-popover-inner) {
   box-shadow: var(--shadow-sm);
   border-radius: var(--radius-md);
@@ -16,6 +24,7 @@
   display: flex;
   flex-direction: column;
   overflow-y: scroll;
+  max-width: 500px;
 }
 
 .panelHeader {

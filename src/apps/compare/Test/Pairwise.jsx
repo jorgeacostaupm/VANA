@@ -12,6 +12,12 @@ import {
 import useResizeObserver from "@/hooks/useResizeObserver";
 import { pubsub } from "@/utils/pubsub";
 import { Settings } from "./PointRange";
+import {
+  CHART_GRID,
+  CHART_OUTLINE,
+  CHART_ZERO_LINE,
+} from "@/utils/chartTheme";
+import { attachTickLabelToNearestGridLine } from "@/utils/gridInteractions";
 
 const { publish } = pubsub;
 
@@ -46,6 +52,7 @@ export default function Pairwise({ id, variable, test, remove }) {
           description: "This test does not provide pairwise effects.",
           placement: "bottomRight",
           type: "info",
+          source: "test",
         });
         setData(null);
         return;
@@ -57,6 +64,7 @@ export default function Pairwise({ id, variable, test, remove }) {
         description: error.message,
         placement: "bottomRight",
         type: "error",
+        source: "test",
       });
     }
   }, [variable, test, selection, groupVar, config.isSync]);
@@ -89,10 +97,10 @@ export default function Pairwise({ id, variable, test, remove }) {
     ) : null;
 
   const pairwiseLabel = data?.pairwiseTitle || "Effect sizes";
-  const title = [test, pairwiseLabel, variable].filter(Boolean).join(" - ");
+  const title = [test, pairwiseLabel, variable].filter(Boolean).join(" · ");
 
   return (
-    <div className={styles.viewContainer}>
+    <div className={styles.viewContainer} data-view-container>
       <ChartBar
         title={title}
         info={infoContent}
@@ -143,7 +151,7 @@ function renderPairwisePlot(container, result, config, dimensions, id) {
 
   const labels = data.map((d) => d.groups.join(" vs "));
 
-  const margin = { top: 10, right: 40, bottom: 40, left: 140 };
+  const margin = { top: 20, right: 50, bottom: 50, left: 160 };
   const totalWidth = dimensions.width;
   const totalHeight = dimensions.height;
   const chartWidth = totalWidth - margin.left - margin.right;
@@ -207,7 +215,7 @@ function renderPairwisePlot(container, result, config, dimensions, id) {
       }
     });
 
-  chart
+  const xAxisG = chart
     .append("g")
     .attr("transform", `translate(0,${chartHeight})`)
     .call(d3.axisBottom(x).ticks(5));
@@ -215,7 +223,8 @@ function renderPairwisePlot(container, result, config, dimensions, id) {
   if (showZeroLine && x.domain()[0] < 0 && x.domain()[1] > 0) {
     chart
       .append("line")
-      .attr("stroke", "black")
+      .attr("class", "zero-line")
+      .attr("stroke", CHART_ZERO_LINE)
       .attr("stroke-dasharray", "4 2")
       .attr("x1", x(0))
       .attr("x2", x(0))
@@ -223,6 +232,7 @@ function renderPairwisePlot(container, result, config, dimensions, id) {
       .attr("y2", chartHeight);
   }
 
+  let gridLines = null;
   if (showGrid) {
     const minVal = x.domain()[0];
     const maxVal = x.domain()[1];
@@ -235,9 +245,9 @@ function renderPairwisePlot(container, result, config, dimensions, id) {
       if (gridValue >= minVal && gridValue <= maxVal) {
         chart
           .append("line")
-          .attr("stroke", "#e2e8f0")
+          .attr("stroke", CHART_GRID)
           .attr("stroke-width", 1)
-          .attr("stroke-dasharray", "2 2")
+          .attr("stroke-dasharray", "8 6")
           .attr("x1", x(gridValue))
           .attr("x2", x(gridValue))
           .attr("y1", 0)
@@ -245,14 +255,17 @@ function renderPairwisePlot(container, result, config, dimensions, id) {
           .attr("class", "grid-line");
       }
     }
+
+    gridLines = chart.selectAll(".grid-line");
   }
 
   chart
     .selectAll(".effect-bar")
     .data(data)
     .join("line")
-    .attr("stroke", "black")
-    .attr("stroke-width", 2)
+    .attr("class", "effect-bar")
+    .attr("stroke", CHART_OUTLINE)
+    .attr("stroke-width", 1.8)
     .attr("x1", (d) => x(d.ci95.lower))
     .attr("x2", (d) => x(d.ci95.upper))
     .attr("y1", (_, i) => y(labels[i]) + y.bandwidth() / 2)
@@ -275,8 +288,9 @@ function renderPairwisePlot(container, result, config, dimensions, id) {
       .selectAll(".cap-left")
       .data(data)
       .join("line")
-      .attr("stroke", "black")
-      .attr("stroke-width", 2)
+      .attr("class", "cap-left")
+      .attr("stroke", CHART_OUTLINE)
+      .attr("stroke-width", 1.6)
       .attr("x1", (d) => x(d.ci95.lower))
       .attr("x2", (d) => x(d.ci95.lower))
       .attr("y1", (_, i) => y(labels[i]) + y.bandwidth() / 2 - capSize)
@@ -286,8 +300,9 @@ function renderPairwisePlot(container, result, config, dimensions, id) {
       .selectAll(".cap-right")
       .data(data)
       .join("line")
-      .attr("stroke", "black")
-      .attr("stroke-width", 2)
+      .attr("class", "cap-right")
+      .attr("stroke", CHART_OUTLINE)
+      .attr("stroke-width", 1.6)
       .attr("x1", (d) => x(d.ci95.upper))
       .attr("x2", (d) => x(d.ci95.upper))
       .attr("y1", (_, i) => y(labels[i]) + y.bandwidth() / 2 - capSize)
@@ -302,7 +317,8 @@ function renderPairwisePlot(container, result, config, dimensions, id) {
       .attr("class", "effect-point")
       .attr("cx", (d) => x(d.value))
       .attr("cy", (_, i) => y(labels[i]) + y.bandwidth() / 2)
-      .attr("r", markerSize);
+      .attr("r", markerSize)
+      .attr("fill", "var(--chart-focus)");
   } else {
     const symbolType =
       markerShape === "square" ? d3.symbolSquare : d3.symbolDiamond;
@@ -316,6 +332,7 @@ function renderPairwisePlot(container, result, config, dimensions, id) {
       .join("path")
       .attr("class", "effect-point")
       .attr("d", symbolGen)
+      .attr("fill", "var(--chart-focus)")
       .attr("transform", (_, i) => {
         const d = data[i];
         return `translate(${x(d.value)},${y(labels[i]) + y.bandwidth() / 2})`;
@@ -336,4 +353,14 @@ function renderPairwisePlot(container, result, config, dimensions, id) {
     })
     .on("mousemove", (event) => moveTooltip(event, tooltip, chart))
     .on("mouseout", () => tooltip.style("visibility", "hidden"));
+
+  if (showGrid && gridLines && !gridLines.empty()) {
+    attachTickLabelToNearestGridLine({
+      axisGroup: xAxisG,
+      gridLines,
+      valueToPosition: (tickValue) => x(+tickValue),
+    });
+    gridLines.raise();
+    xAxisG.raise();
+  }
 }

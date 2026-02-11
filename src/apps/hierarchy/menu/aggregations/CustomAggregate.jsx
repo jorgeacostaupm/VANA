@@ -8,7 +8,7 @@ import { get_parser } from "../logic/parser";
 import buildAggregation from "../logic/formulaGenerator";
 import { QuestionCircleOutlined } from "@ant-design/icons";
 import PopoverButton from "@/components/ui/PopoverButton";
-import { CUST_HELP } from "@/utils/Constants";
+import CustomFormulaHelp from "./CustomFormulaHelp";
 import styles from "./DropArea.module.css";
 
 const { Text } = Typography;
@@ -38,7 +38,7 @@ const CustomAggregate = ({ nodes, formula, save }) => {
     try {
       const input = e.target.value.trim() === "" ? '""' : e.target.value;
       parsed = parser.parse(input);
-    } catch (error) {
+    } catch {
       setFieldError("info.formula", "Invalid formula");
       return;
     }
@@ -97,8 +97,8 @@ const CustomAggregate = ({ nodes, formula, save }) => {
         >
           <Text strong>Aggregation Formula:</Text>
           <PopoverButton
-            title={"Help"}
-            content={CUST_HELP}
+            title={"Custom Operations Help"}
+            content={<CustomFormulaHelp />}
             placement="left"
             icon={<QuestionCircleOutlined></QuestionCircleOutlined>}
           ></PopoverButton>

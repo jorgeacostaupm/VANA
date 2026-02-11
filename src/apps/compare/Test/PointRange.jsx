@@ -13,6 +13,7 @@ import ChartBar from "@/components/charts/ChartBar";
 import tests from "@/utils/tests";
 import store from "@/store/store";
 import { pubsub } from "@/utils/pubsub";
+import { CHART_OUTLINE, CHART_ZERO_LINE } from "@/utils/chartTheme";
 
 const { publish } = pubsub;
 
@@ -88,6 +89,7 @@ export default function PointRange({ id, variable, test, remove }) {
         description: error.message,
         placement: "bottomRight",
         type: "error",
+        source: "test",
       });
     }
   }, [variable, test, selection, groupVar, config.isSync]);
@@ -103,7 +105,7 @@ export default function PointRange({ id, variable, test, remove }) {
     });
     d3.select(containerRef.current).selectAll("*").remove();
 
-    const margin = { top: 40, right: 40, bottom: 40, left: 100 };
+    const margin = { top: 50, right: 50, bottom: 50, left: 120 };
     const totalWidth = dims.width;
     const totalHeight = dims.height;
     const chartWidth = totalWidth - margin.left - margin.right;
@@ -154,7 +156,8 @@ export default function PointRange({ id, variable, test, remove }) {
     if (showZeroLine && y.domain()[0] < 0 && y.domain()[1] > 0) {
       chart
         .append("line")
-        .attr("stroke", "black")
+        .attr("class", "zero-line")
+        .attr("stroke", CHART_ZERO_LINE)
         .attr("stroke-dasharray", "4 2")
         .attr("x1", 0)
         .attr("x2", chartWidth)
@@ -167,8 +170,9 @@ export default function PointRange({ id, variable, test, remove }) {
       .data(sortedData)
       .enter()
       .append("line")
-      .attr("stroke", "black")
-      .attr("stroke-width", 2)
+      .attr("class", "ci-line")
+      .attr("stroke", CHART_OUTLINE)
+      .attr("stroke-width", 1.8)
       .attr("x1", (d) => x(d.name) + x.bandwidth() / 2)
       .attr("x2", (d) => x(d.name) + x.bandwidth() / 2)
       .attr("y1", (d) => y(d.ci95.lower))
@@ -191,8 +195,9 @@ export default function PointRange({ id, variable, test, remove }) {
         .selectAll(".cap-left")
         .data(sortedData)
         .join("line")
-        .attr("stroke", "black")
-        .attr("stroke-width", 2)
+        .attr("class", "cap-left")
+        .attr("stroke", CHART_OUTLINE)
+        .attr("stroke-width", 1.6)
         .attr("x1", (d) => x(d.name) + x.bandwidth() / 2 - capSize)
         .attr("x2", (d) => x(d.name) + x.bandwidth() / 2 + capSize)
         .attr("y1", (d) => y(d.ci95.lower))
@@ -202,8 +207,9 @@ export default function PointRange({ id, variable, test, remove }) {
         .selectAll(".cap-right")
         .data(sortedData)
         .join("line")
-        .attr("stroke", "black")
-        .attr("stroke-width", 2)
+        .attr("class", "cap-right")
+        .attr("stroke", CHART_OUTLINE)
+        .attr("stroke-width", 1.6)
         .attr("x1", (d) => x(d.name) + x.bandwidth() / 2 - capSize)
         .attr("x2", (d) => x(d.name) + x.bandwidth() / 2 + capSize)
         .attr("y1", (d) => y(d.ci95.upper))
@@ -274,10 +280,10 @@ export default function PointRange({ id, variable, test, remove }) {
     ) : null;
 
   const summaryLabel = result?.summariesTitle || "Summary";
-  const title = [test, summaryLabel, variable].filter(Boolean).join(" - ");
+  const title = [test, summaryLabel, variable].filter(Boolean).join(" · ");
 
   return (
-    <div className={styles.viewContainer}>
+    <div className={styles.viewContainer} data-view-container>
       <ChartBar
         title={title}
         info={infoContent}

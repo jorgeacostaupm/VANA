@@ -4,8 +4,10 @@ import { moveTooltip } from "@/utils/functions";
 import useResizeObserver from "@/hooks/useResizeObserver";
 import { useSelector } from "react-redux";
 import renderLegend from "@/utils/renderLegend";
+import { CHART_HIGHLIGHT } from "@/utils/chartTheme";
+import { attachTickLabelGridHover } from "@/utils/gridInteractions";
 
-const margin = { top: 50, right: 50, bottom: 50, left: 75 };
+const margin = { top: 60, right: 60, bottom: 60, left: 85 };
 
 let brushCell = null;
 let brushInstance = null;
@@ -41,14 +43,6 @@ export default function useScatter({ chartRef, legendRef, data, config }) {
     let tooltip = d3.select("body").select("div.tooltip");
     if (tooltip.empty()) {
       tooltip = d3.select("body").append("div").attr("class", "tooltip");
-    }
-
-    let contextMenuTooltip = d3.select("body").select("div.contextTooltip");
-    if (contextMenuTooltip.empty()) {
-      contextMenuTooltip = d3
-        .select("body")
-        .append("div")
-        .attr("class", "contextTooltip");
     }
 
     const svg = d3.select(chartRef.current);
@@ -139,7 +133,7 @@ export default function useScatter({ chartRef, legendRef, data, config }) {
         .attr("width", position.bandwidth())
         .attr("height", position.bandwidth())
         .attr("fill", "transparent")
-        .attr("stroke", "black")
+        .attr("stroke", "var(--chart-border-strong)")
         .attr("stroke-width", 1);
 
       const dots = gCell.selectAll(".dots").data(data);
@@ -188,10 +182,10 @@ export default function useScatter({ chartRef, legendRef, data, config }) {
     function renderScatterAxis(gCell, var1, var2, x, y) {
       const n_ticks = 3;
       const variables = position.domain();
-      if (variables.indexOf(var1) == 0)
-        gCell
+      if (variables.indexOf(var1) == 0) {
+        const axisG = gCell
           .append("g")
-          .style("color", "black")
+          .style("color", "var(--chart-axis)")
           .call(d3.axisLeft(y).ticks(n_ticks))
           .call((g) => {
             const columnIndex = variables.indexOf(var2);
@@ -203,16 +197,23 @@ export default function useScatter({ chartRef, legendRef, data, config }) {
 
             g.selectAll(".tick line")
               .clone()
+              .classed("chart-grid-line", true)
               .attr("x2", x2Value + 1 * (columnIndex - 1))
               .attr("stroke-opacity", 0.1);
             g.selectAll(".domain").remove();
             g.attr("transform", `translate(0,-0.5)`);
           });
+        attachTickLabelGridHover({
+          axisGroup: axisG,
+          gridGroup: axisG,
+          lineSelector: "line.chart-grid-line",
+        });
+      }
 
-      if (variables.indexOf(var2) == 0)
-        gCell
+      if (variables.indexOf(var2) == 0) {
+        const axisG = gCell
           .append("g")
-          .style("color", "black")
+          .style("color", "var(--chart-axis)")
           .call(d3.axisTop(x).ticks(n_ticks))
           .call((g) => {
             g.selectAll(".tick line").attr("y2", -6);
@@ -228,14 +229,21 @@ export default function useScatter({ chartRef, legendRef, data, config }) {
 
             g.selectAll(".tick line")
               .clone()
+              .classed("chart-grid-line", true)
               .attr("y2", y2Value + 1 * (columnIndex - 1))
               .attr("stroke-opacity", 0.1);
           });
+        attachTickLabelGridHover({
+          axisGroup: axisG,
+          gridGroup: axisG,
+          lineSelector: "line.chart-grid-line",
+        });
+      }
 
-      if (variables.indexOf(var1) == variables.length - 1)
-        gCell
+      if (variables.indexOf(var1) == variables.length - 1) {
+        const axisG = gCell
           .append("g")
-          .style("color", "black")
+          .style("color", "var(--chart-axis)")
           .attr("transform", `translate(${position.bandwidth()},-0.5)`)
           .call(d3.axisRight(y).ticks(n_ticks))
           .call((g) => {
@@ -252,15 +260,22 @@ export default function useScatter({ chartRef, legendRef, data, config }) {
 
             g.selectAll(".tick line")
               .clone()
+              .classed("chart-grid-line", true)
               .attr("x2", -x2Value - 1 * (columnIndex - 1))
               .attr("stroke-opacity", 0.1);
           });
+        attachTickLabelGridHover({
+          axisGroup: axisG,
+          gridGroup: axisG,
+          lineSelector: "line.chart-grid-line",
+        });
+      }
 
-      if (variables.indexOf(var2) == variables.length - 1)
-        gCell
+      if (variables.indexOf(var2) == variables.length - 1) {
+        const axisG = gCell
           .append("g")
           .attr("transform", `translate(-0.5,${position.bandwidth()})`)
-          .style("color", "black")
+          .style("color", "var(--chart-axis)")
           .call(d3.axisBottom(x).ticks(n_ticks))
           .call((g) => {
             const columnIndex = variables.length - variables.indexOf(var1) - 1;
@@ -272,11 +287,18 @@ export default function useScatter({ chartRef, legendRef, data, config }) {
 
             g.selectAll(".tick line")
               .clone()
+              .classed("chart-grid-line", true)
               .attr("y2", -y2Value - 1 * (columnIndex - 1))
               .attr("stroke-opacity", 0.1);
 
             g.selectAll(".domain").remove();
           });
+        attachTickLabelGridHover({
+          axisGroup: axisG,
+          gridGroup: axisG,
+          lineSelector: "line.chart-grid-line",
+        });
+      }
     }
 
     function renderBigScatter(scatter) {
@@ -313,7 +335,7 @@ export default function useScatter({ chartRef, legendRef, data, config }) {
         .attr("opacity", pointOpacity ?? 0.8)
         .on("mouseover", function (e, d) {
           const target = e.target;
-          d3.select(target).style("stroke", "black").raise();
+          d3.select(target).style("stroke", CHART_HIGHLIGHT).raise();
           let html = `<strong>${d[groupVar]}</strong> <br>`;
           html += `${var1}: ${d[var1]?.toFixed(2)} <br> ${var2}: ${d[
             var2
@@ -329,24 +351,18 @@ export default function useScatter({ chartRef, legendRef, data, config }) {
           const target = e.target;
           d3.select(target).style("stroke", null);
           tooltip.style("opacity", 0);
-        })
-        .on("contextmenu", function (e, d) {
-          e.preventDefault();
-          tooltip.style("opacity", 0);
-          renderQTooltip(contextMenuTooltip, d, idVar);
-          moveTooltip(e, contextMenuTooltip, chart);
         });
 
       chart
         .append("g")
         .attr("transform", `translate(0, ${chartSize})`)
-        .style("color", "black")
+        .style("color", "var(--chart-axis)")
         .call(d3.axisBottom(x).ticks(3));
 
       chart
         .append("g")
         .attr("transform", `translate(0, 0)`)
-        .style("color", "black")
+        .style("color", "var(--chart-axis)")
         .call(d3.axisLeft(y).ticks(3));
 
       chart

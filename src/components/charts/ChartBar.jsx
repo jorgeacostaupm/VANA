@@ -26,7 +26,7 @@ export default function ChartBar({
     setConfig((prev) => ({ ...prev, [field]: value }));
 
   return (
-    <div className={styles.chartBar}>
+    <div className={styles.chartBar} data-view-bar>
       <div className={`${styles.dragHandle} drag-handle ${styles.chartTitle}`}>
         {title}
       </div>
@@ -71,7 +71,7 @@ export default function ChartBar({
 
 export function NodeBar({ title, remove }) {
   return (
-    <div className={styles.chartBar}>
+    <div className={styles.chartBar} data-view-bar>
       <div className={styles.chartTitle}>{title}</div>
 
       <div className={styles.right}>
@@ -85,7 +85,7 @@ export function NodeBar({ title, remove }) {
 
 export function Bar({ children, title }) {
   return (
-    <div className={styles.chartBar}>
+    <div className={styles.chartBar} data-view-bar>
       <div className={`${styles.dragHandle} drag-handle ${styles.chartTitle}`}>
         {title}
       </div>

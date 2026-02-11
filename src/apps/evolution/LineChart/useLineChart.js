@@ -6,6 +6,8 @@ import renderLegend from "@/utils/renderLegend";
 import { moveTooltip } from "@/utils/functions";
 import useResizeObserver from "@/hooks/useResizeObserver";
 import { numMargin } from "@/apps/compare/Numeric/charts/Density/useDensity";
+import { CHART_OUTLINE } from "@/utils/chartTheme";
+import { attachTickLabelGridHover } from "@/utils/gridInteractions";
 
 export default function useLineChart({ chartRef, legendRef, data, config }) {
   const dimensions = useResizeObserver(chartRef);
@@ -76,8 +78,9 @@ export default function useLineChart({ chartRef, legendRef, data, config }) {
       .range([chartHeight, 0])
       .nice();
 
+    let yGridG = null;
     if (showGrid) {
-      chart
+      yGridG = chart
         .append("g")
         .attr("class", "grid y-grid")
         .call(
@@ -96,7 +99,17 @@ export default function useLineChart({ chartRef, legendRef, data, config }) {
       .attr("transform", `translate(0,${chartHeight})`)
       .call(d3.axisBottom(x));
 
-    chart.append("g").attr("class", "y-axis").call(d3.axisLeft(y));
+    const yAxisG = chart
+      .append("g")
+      .attr("class", "y-axis")
+      .call(d3.axisLeft(y).ticks(5));
+
+    if (showGrid && yGridG) {
+      attachTickLabelGridHover({
+        axisGroup: yAxisG,
+        gridGroup: yGridG,
+      });
+    }
 
     let tooltip = d3.select("body").select("div.tooltip");
     if (tooltip.empty()) {
@@ -172,7 +185,7 @@ export default function useLineChart({ chartRef, legendRef, data, config }) {
           .attr("cx", (d) => x("" + d.timestamp) + x.bandwidth() / 2)
           .attr("cy", (d) => y(d.value))
           .attr("fill", grpColor)
-          .attr("stroke", "black")
+          .attr("stroke", CHART_OUTLINE)
           .attr("r", subjectPointSize)
           .on("mouseover", function (event, d) {
             const html = `
@@ -303,7 +316,7 @@ export default function useLineChart({ chartRef, legendRef, data, config }) {
           .attr("cx", (v) => x(v.time) + x.bandwidth() / 2)
           .attr("cy", (v) => y(v.value.mean))
           .attr("fill", c)
-          .attr("stroke", "black")
+          .attr("stroke", CHART_OUTLINE)
           .attr("r", meanPointSize)
           .on("mouseover", function (event, v) {
             const html = `
@@ -329,6 +342,11 @@ export default function useLineChart({ chartRef, legendRef, data, config }) {
     // legend
     if (showLegend !== false) {
       renderLegend(legend, selectionGroups, color, null, null, hide, setHide);
+    }
+
+    if (showGrid && yGridG) {
+      yGridG.raise();
+      yAxisG.raise();
     }
 
     chartStateRef.current = {

@@ -163,6 +163,7 @@ const compareSlice = createSlice({
           message: "Error executing test for all variables",
           description: state.error,
           type: "error",
+          source: "test",
         });
       });
 
@@ -182,6 +183,7 @@ const compareSlice = createSlice({
           message: "Error executing test",
           description: state.error,
           type: "error",
+          source: "test",
         });
       });
 

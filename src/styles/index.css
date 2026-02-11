@@ -73,6 +73,30 @@
   --secondary-color: var(--color-brand);
   --warning-color: var(--color-warning);
   --axis-color: var(--color-ink-secondary);
+
+  --chart-bg: var(--color-surface);
+  --chart-bg-muted: var(--color-surface-muted);
+  --chart-border: var(--color-border);
+  --chart-border-strong: var(--color-border-strong);
+  --chart-axis: var(--color-ink-secondary);
+  --chart-axis-muted: var(--color-ink-tertiary);
+  --chart-grid: #e2e8f0;
+  --chart-grid-strong: #cbd5e1;
+  --chart-outline: var(--color-ink-secondary);
+  --chart-outline-muted: var(--color-ink-tertiary);
+  --chart-zero-line: #94a3b8;
+  --chart-focus: var(--color-brand);
+
+  --chart-series-1: #2563eb;
+  --chart-series-2: #0ea5e9;
+  --chart-series-3: #14b8a6;
+  --chart-series-4: #22c55e;
+  --chart-series-5: #84cc16;
+  --chart-series-6: #f59e0b;
+  --chart-series-7: #f97316;
+  --chart-series-8: #ef4444;
+  --chart-series-9: #ec4899;
+  --chart-series-10: #8b5cf6;
 }
 
 *,
@@ -113,8 +137,10 @@ svg tspan {
 }
 
 svg .grid line {
-  stroke: #e2e8f0;
-  stroke-dasharray: 3 3;
+  stroke: var(--chart-grid);
+  stroke-dasharray: 8 6;
+  stroke-width: 1;
+  stroke-linecap: butt;
 }
 
 svg .grid path {

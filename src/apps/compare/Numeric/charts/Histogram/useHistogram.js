@@ -5,6 +5,8 @@ import { useSelector } from "react-redux";
 import { moveTooltip } from "@/utils/functions";
 import { numMargin, renderLegend } from "../Density/useDensity";
 import useResizeObserver from "@/hooks/useResizeObserver";
+import { CHART_OUTLINE_MUTED } from "@/utils/chartTheme";
+import { attachTickLabelGridHover } from "@/utils/gridInteractions";
 
 export default function useHistogram({ chartRef, legendRef, data, config }) {
   const dimensions = useResizeObserver(chartRef);
@@ -53,8 +55,9 @@ export default function useHistogram({ chartRef, legendRef, data, config }) {
     const bandwidth = (x(xMax) - x(xMin)) / nPoints;
     const binWidth = (xMax - xMin) / nPoints;
 
+    let yGridG = null;
     if (showGrid) {
-      chart
+      yGridG = chart
         .append("g")
         .attr("class", "grid y-grid")
         .call(d3.axisLeft(y).ticks(5).tickSize(-chartWidth).tickFormat(""))
@@ -66,7 +69,14 @@ export default function useHistogram({ chartRef, legendRef, data, config }) {
       .attr("transform", `translate(0,${chartHeight})`)
       .call(d3.axisBottom(x));
 
-    chart.append("g").call(d3.axisLeft(y));
+    const yAxisG = chart.append("g").call(d3.axisLeft(y).ticks(5));
+
+    if (showGrid && yGridG) {
+      attachTickLabelGridHover({
+        axisGroup: yAxisG,
+        gridGroup: yGridG,
+      });
+    }
 
     chart
       .selectAll(".density")
@@ -80,13 +90,14 @@ export default function useHistogram({ chartRef, legendRef, data, config }) {
           .selectAll("rect")
           .data(d.value)
           .join("rect")
+          .attr("class", "histogram-bar")
           .attr("x", (bin) => x(bin[0]))
           .attr("y", (bin) => y(bin[1]))
           .attr("width", bandwidth)
           .attr("height", (bin) => chartHeight - y(bin[1]))
           .attr("fill", color(d.group))
-          .attr("stroke", "black")
-          .attr("stroke-width", 1)
+          .attr("stroke", CHART_OUTLINE_MUTED)
+          .attr("stroke-width", 0.8)
           .on("mouseover", function (e, item) {
             tooltip.style("visibility", "visible").html(`
               <strong>${d.group}</strong> <br/>
@@ -102,6 +113,11 @@ export default function useHistogram({ chartRef, legendRef, data, config }) {
 
     if (showLegend !== false) {
       renderLegend(legend, selectionGroups, color, blur, setBlur, hide, setHide);
+    }
+
+    if (showGrid && yGridG) {
+      yGridG.raise();
+      yAxisG.raise();
     }
   }, [data, config, dimensions, groups, selectionGroups]);
 

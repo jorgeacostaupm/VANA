@@ -1,17 +1,21 @@
 import * as d3 from "d3";
 import store from "@/store/store";
 import { formatDecimal, moveTooltip } from "@/utils/functions";
+import { CHART_GRID } from "@/utils/chartTheme";
+import { attachTickLabelGridHover } from "@/utils/gridInteractions";
 
 export default class RankingPlot {
   constructor(parent) {
     this.parent = parent;
-    this.margin = { top: 40, right: 20, bottom: 50, left: 80 };
+    this.margin = { top: 50, right: 30, bottom: 60, left: 90 };
     this.nBars = 15;
     this.pValue = 0.05;
     this.desc = true;
     this.filterList = [];
     this.xAccesor = (d) => d.variable;
     this.yAccesor = (d) => Math.abs(+d.value);
+    this.selectedVar = null;
+    this.onVariableClick = null;
     this.initVis();
   }
 
@@ -77,7 +81,6 @@ export default class RankingPlot {
         !vis.config.filterList.includes(d.variable) &&
         d.pValue < vis.config.pValue
     );
-    vis.selectedVar = null;
 
     vis.descriptions = store.getState().cantab.present.descriptions;
 
@@ -122,6 +125,18 @@ export default class RankingPlot {
       .attr("width", vis.x_scale.bandwidth())
       .attr("height", (d) => vis.height - vis.y_scale(vis.yAccesor(d)))
       .attr("fill", "rgb(22, 119, 255)")
+      .style("cursor", "pointer")
+      .on("click", function (_, d) {
+        vis.selectedVar = d.variable;
+        vis.selectedBar = d3.select(this);
+        vis.chart
+          .selectAll(".bar")
+          .classed("selected", (item) => item.variable === vis.selectedVar);
+
+        if (typeof vis.onVariableClick === "function") {
+          vis.onVariableClick(d.variable);
+        }
+      })
       .on("mouseover", function (e, d) {
         vis.tooltip.style("visibility", "visible").html(
           `<strong>${vis.xAccesor(d)} </strong> <br>
@@ -129,37 +144,12 @@ export default class RankingPlot {
           p-value: ${formatDecimal(d.p_value)} `
         );
       })
-      .on("mousemove", function (e, d) {
+      .on("mousemove", function (e) {
         moveTooltip(e, vis.tooltip, vis.chart);
       })
       .on("mouseout", function () {
         vis.tooltip.style("visibility", "hidden");
       });
-    /*       .on("click", function (e, d) {
-        const clickedBar = d3.select(this);
-
-        if (vis.selectedBar && clickedBar.node() === vis.selectedBar.node()) {
-          clickedBar.attr("class", "bar");
-          vis.selectedBar = null;
-        } else {
-          if (vis.selectedBar) {
-            vis.selectedBar.attr("class", "bar");
-          }
-
-          vis.selectedBar = clickedBar;
-
-          vis.selectedBar.attr("class", "bar selected");
-        }
-        store.dispatch(setSelectedVar(vis.selectedBar ? d.variable : null));
-      }); */
-
-    /* let tmp = vis.chart
-      .selectAll(".bar")
-      .filter((d) => d.variable === vis.selectedVar);
-    if (tmp) {
-      tmp.attr("class", "bar selected");
-      vis.selectedBar = tmp;
-    } */
 
     vis.chart.selectAll(".bar").classed("selected", function (d) {
       if (d.variable === vis.selectedVar) vis.selectedBar = d3.select(this);
@@ -196,7 +186,7 @@ export default class RankingPlot {
           .style("opacity", 1)
           .html(`${d}: ${description ? description : "-"} `);
       })
-      .on("mousemove", function (e, d) {
+      .on("mousemove", function (e) {
         moveTooltip(e, vis.descTooltip, vis.chart);
       })
       .on("mouseout", function () {
@@ -211,14 +201,38 @@ export default class RankingPlot {
     if (vis.config.showGrid) {
       vis.yAxisG
         .selectAll(".tick line")
-        .attr("stroke", "#e2e8f0")
-        .attr("stroke-dasharray", "2 2");
-      vis.yAxisG.select(".domain").attr("stroke", "#94a3b8");
+        .attr("stroke", CHART_GRID)
+        .attr("stroke-dasharray", "8 6");
+
+      vis.yAxisG
+        .selectAll(".tick")
+        .filter((_, i, nodes) => i === 0 || i === nodes.length - 1)
+        .select("line")
+        .classed("chart-grid-line", false)
+        .attr("stroke", "none");
+
+      attachTickLabelGridHover({
+        axisGroup: vis.yAxisG,
+        gridGroup: vis.yAxisG,
+        lineSelector: "line",
+        includeTick: (_, i, nodes) => i !== 0 && i !== nodes.length - 1,
+      });
+
+      vis.yAxisG.raise();
+      vis.xAxisG.select(".domain").attr("stroke", "none");
+      vis.yAxisG.select(".domain").attr("stroke", "none");
     } else {
       vis.yAxisG
         .selectAll(".tick line")
+        .classed("chart-grid-line", false)
+        .classed("grid-line-active", false)
         .attr("stroke", null)
         .attr("stroke-dasharray", null);
+      vis.yAxisG
+        .selectAll(".tick text")
+        .on("mouseover.grid-line-highlight", null)
+        .on("mouseout.grid-line-highlight", null);
+      vis.xAxisG.select(".domain").attr("stroke", null);
       vis.yAxisG.select(".domain").attr("stroke", null);
     }
   }

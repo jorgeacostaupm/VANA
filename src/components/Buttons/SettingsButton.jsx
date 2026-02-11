@@ -11,7 +11,7 @@ function SettingsContent({ config, updateConfig }) {
 
   const handleUpdateConfig = useCallback(
     (field, value) => dispatch(updateConfig({ field, value })),
-    [dispatch]
+    [dispatch],
   );
 
   return (

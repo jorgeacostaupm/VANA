@@ -6,9 +6,11 @@ import { useSelector } from "react-redux";
 import useResizeObserver from "@/hooks/useResizeObserver";
 import { pubsub } from "@/utils/pubsub";
 import { deepCopy } from "@/utils/functions";
+import { CHART_OUTLINE } from "@/utils/chartTheme";
+import { attachTickLabelGridHover } from "@/utils/gridInteractions";
 const { publish } = pubsub;
 
-export const numMargin = { top: 40, right: 40, bottom: 40, left: 80 };
+export const numMargin = { top: 50, right: 50, bottom: 50, left: 90 };
 
 export default function useDensity({ chartRef, legendRef, data, config }) {
   const dimensions = useResizeObserver(chartRef);
@@ -50,8 +52,9 @@ export default function useDensity({ chartRef, legendRef, data, config }) {
     const x = d3.scaleLinear().domain([xMin, xMax]).range([0, chartWidth]);
     const y = d3.scaleLinear().range([chartHeight, 0]).domain([0, yMax]);
 
+    let yGridG = null;
     if (showGrid) {
-      chart
+      yGridG = chart
         .append("g")
         .attr("class", "grid y-grid")
         .call(d3.axisLeft(y).ticks(5).tickSize(-chartWidth).tickFormat(""))
@@ -63,7 +66,14 @@ export default function useDensity({ chartRef, legendRef, data, config }) {
       .attr("transform", `translate(0,${chartHeight})`)
       .call(d3.axisBottom(x));
 
-    chart.append("g").call(d3.axisLeft(y));
+    const yAxisG = chart.append("g").call(d3.axisLeft(y).ticks(5));
+
+    if (showGrid && yGridG) {
+      attachTickLabelGridHover({
+        axisGroup: yAxisG,
+        gridGroup: yGridG,
+      });
+    }
 
     chart
       .selectAll(".density")
@@ -89,6 +99,11 @@ export default function useDensity({ chartRef, legendRef, data, config }) {
         d3.select(this).classed("tmp-noblur", true).raise();
 
         showStats(d.group);
+
+        if (showGrid && yGridG) {
+          yGridG.raise();
+          yAxisG.raise();
+        }
       })
       .on("mouseout", function () {
         hideStats();
@@ -110,6 +125,11 @@ export default function useDensity({ chartRef, legendRef, data, config }) {
         showStats,
         hideStats,
       );
+    }
+
+    if (showGrid && yGridG) {
+      yGridG.raise();
+      yAxisG.raise();
     }
 
     function hideStats() {
@@ -139,7 +159,7 @@ export default function useDensity({ chartRef, legendRef, data, config }) {
           .attr("x2", x(val))
           .attr("y1", 0)
           .attr("y2", chartHeight)
-          .attr("stroke", "#000")
+          .attr("stroke", CHART_OUTLINE)
           .attr("stroke-dasharray", i === 0 ? null : "2,2")
           .attr("stroke-width", 1);
 

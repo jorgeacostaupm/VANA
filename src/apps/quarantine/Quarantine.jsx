@@ -16,7 +16,7 @@ export default function Quarantine() {
   const config = useSelector((state) => state.cantab.present.config);
 
   return (
-    <div className={styles.viewContainer}>
+    <div className={styles.viewContainer} data-view-container>
       <Bar title="Quarantine" config={config} updateConfig={updateConfig} />
 
       {dt && dt.length > 0 ? (

@@ -13,7 +13,7 @@ export default function ViewContainer({
   setConfig,
 }) {
   return (
-    <div className={styles.viewContainer}>
+    <div className={styles.viewContainer} data-view-container>
       <ChartBar
         title={title}
         info={info}

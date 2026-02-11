@@ -9,7 +9,7 @@ import buildAggregation from "../logic/formulaGenerator";
 
 import { QuestionCircleOutlined } from "@ant-design/icons";
 import PopoverButton from "@/components/ui/PopoverButton";
-import { CUST_HELP } from "@/utils/Constants";
+import CustomFormulaHelp from "./CustomFormulaHelp";
 import styles from "./DropArea.module.css";
 import { AttributePaste } from "./CustomAggregate";
 import { SaveButton } from "../NodeMenu";
@@ -88,8 +88,8 @@ const CustomMeasure = ({ formula }) => {
         >
           <Text strong>Custom Formula:</Text>
           <PopoverButton
-            title="Help"
-            content={CUST_HELP}
+            title="Custom Operations Help"
+            content={<CustomFormulaHelp />}
             placement="left"
             icon={<QuestionCircleOutlined />}
           />

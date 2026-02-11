@@ -27,7 +27,9 @@ function subscribeToNotification(api) {
       type: data.type || "info", // 'info', 'success', 'warning', 'error'
       placement: data.placement || "bottomRight",
       duration: data.duration ?? (data.type === "error" ? 7 : 3),
-      pauseOnHover: data.pauseOnHover ?? data.type === "error",
+      pauseOnHover:
+        data.pauseOnHover ??
+        (data.source === "test" || data.type === "error"),
       showProgress: data.showProgress ?? data.type === "error",
       style: {
         whiteSpace: "pre-line",

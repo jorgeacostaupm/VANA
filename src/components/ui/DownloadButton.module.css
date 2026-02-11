@@ -1,0 +1,7 @@
+.dropdownOverlayFixed {
+  position: fixed !important;
+  top: var(--view-overlay-top) !important;
+  right: var(--view-overlay-right) !important;
+  left: auto !important;
+  bottom: auto !important;
+}

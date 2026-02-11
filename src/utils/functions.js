@@ -133,60 +133,134 @@ export function computeRankingData({
 
   const variables =
     testObj.variableType === VariableTypes.NUMERICAL
-      ? numericVars
-      : categoricVars;
+      ? numericVars ?? []
+      : categoricVars ?? [];
 
   const table = aq.from(selection);
   const grouped = table.groupby(groupVar).objects({ grouped: "entries" });
 
-  const errors = [];
+  const groupCount = grouped.length;
+  const metricLabel = testObj.metric?.symbol
+    ? `${testObj.metric?.measure ?? "Metric"} (${testObj.metric.symbol})`
+    : testObj.metric?.measure ?? "Metric";
 
-  variables.forEach((variable) => {
-    grouped.forEach(([group, rows]) => {
-      rows.forEach((row) => {
-        const value = row[variable];
-        if (testObj.variableType === VariableTypes.NUMERICAL) {
-          if (
-            value == null ||
-            typeof value !== "number" ||
-            !Number.isFinite(value)
-          ) {
-            errors.push(
-              `Invalid value in column "${variable}" group "${group}" → ${value}`
-            );
-          }
-        } else if (value == null || Number.isNaN(value)) {
-          errors.push(
-            `Invalid value in column "${variable}" group "${group}" → ${value}`
-          );
-        }
-      });
-    });
-  });
-
-  if (errors.length) {
-    throw new Error(errors.join("\n"));
+  // If the selected test is globally incompatible, return an empty ranking
+  // with explicit reasons instead of throwing and breaking the full view.
+  if (
+    typeof testObj.isApplicable === "function" &&
+    !testObj.isApplicable(groupCount)
+  ) {
+    const reason = `Test "${testObj.label}" is not applicable for ${groupCount} groups.`;
+    return {
+      data: [],
+      measure: metricLabel,
+      skippedVariables: variables.map((variable) => ({ variable, reason })),
+      includedVariables: 0,
+      totalVariables: variables.length,
+    };
   }
 
-  const results = variables.map((variable) => {
+  const skippedVariables = [];
+
+  const results = variables.reduce((acc, variable) => {
     const groups = grouped.map(([name, rows]) => ({
       name,
       values: rows.map((r) => r[variable]),
     }));
-    const res = testObj.run(groups);
-    const hierarchyItem = hierarchy.find((item) => item.name === variable);
-    return {
-      variable,
-      value: res.metric.value,
-      p_value: res.pValue,
-      ...res,
-      desc: hierarchyItem?.desc,
-    };
-  });
+
+    const validationReason = getRankingVariableValidationReason(
+      groups,
+      testObj.variableType
+    );
+    if (validationReason) {
+      skippedVariables.push({
+        variable,
+        reason: validationReason,
+      });
+      return acc;
+    }
+
+    try {
+      const res = testObj.run(groups);
+      const metricValue = res?.metric?.value;
+      const pValue = res?.pValue;
+
+      if (typeof metricValue !== "number" || !Number.isFinite(metricValue)) {
+        throw new Error("Test returned an invalid ranking metric value.");
+      }
+      if (typeof pValue !== "number" || !Number.isFinite(pValue)) {
+        throw new Error("Test returned an invalid p-value.");
+      }
+
+      const hierarchyItem = Array.isArray(hierarchy)
+        ? hierarchy.find((item) => item.name === variable)
+        : null;
+      acc.push({
+        variable,
+        value: metricValue,
+        p_value: pValue,
+        ...res,
+        desc: hierarchyItem?.desc,
+      });
+    } catch (error) {
+      skippedVariables.push({
+        variable,
+        reason: normalizeErrorMessage(error),
+      });
+    }
+
+    return acc;
+  }, []);
+
   return {
     data: results,
-    measure: `${testObj.metric.measure} (${testObj.metric.symbol})`,
+    measure: metricLabel,
+    skippedVariables,
+    includedVariables: results.length,
+    totalVariables: variables.length,
   };
+}
+
+function getRankingVariableValidationReason(groups, variableType) {
+  const invalidByGroup = groups
+    .map((group) => {
+      const invalidCount = group.values.reduce((count, value) => {
+        if (variableType === VariableTypes.NUMERICAL) {
+          const valid =
+            value != null &&
+            typeof value === "number" &&
+            Number.isFinite(value) &&
+            !Number.isNaN(value);
+          return count + (valid ? 0 : 1);
+        }
+        const valid = value != null && !Number.isNaN(value);
+        return count + (valid ? 0 : 1);
+      }, 0);
+
+      return invalidCount > 0
+        ? `${group.name}: ${invalidCount}`
+        : null;
+    })
+    .filter(Boolean);
+
+  if (!invalidByGroup.length) return null;
+
+  if (variableType === VariableTypes.NUMERICAL) {
+    return `Contains invalid numeric values by group (${invalidByGroup.join(
+      ", "
+    )}).`;
+  }
+
+  return `Contains missing/invalid categorical values by group (${invalidByGroup.join(
+    ", "
+  )}).`;
+}
+
+function normalizeErrorMessage(error) {
+  if (!error) return "Unknown error while running test.";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message || "Unknown test error.";
+  return "Unknown test error.";
 }
 
 export function computeEvolutionObservationData(
@@ -446,6 +520,7 @@ export function generateTree(attributes, nodeID) {
     name: node.name,
     children: children,
     isShown: node.isShown,
+    isActive: node.isActive !== false,
     type: node.type,
     dtype: node.dtype,
     formula: node?.info?.formula,
@@ -459,6 +534,8 @@ export function getVisibleNodes(tree) {
 
   while (queue.length > 0) {
     const node = queue.shift();
+    if (!node || node.isActive === false) continue;
+
     if (
       node.isShown === false ||
       !node.children ||
@@ -470,7 +547,7 @@ export function getVisibleNodes(tree) {
       )
         filteredNodes.push(node.name);
     } else if (node.children && node.children.length > 0) {
-      queue.push(...node.children);
+      queue.push(...node.children.filter((child) => child?.isActive !== false));
     }
   }
   return filteredNodes;

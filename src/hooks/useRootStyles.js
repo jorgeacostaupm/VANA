@@ -14,6 +14,12 @@ const useRootStyles = (
       Object.assign(rootElement.style, applyStyles);
     }
 
+    const hash = window.location.hash || "";
+    const route = hash.startsWith("#/") ? hash.slice(2).split("/")[0] : "";
+    if (route) {
+      window.name = `vana-app-${route}`;
+    }
+
     if (title) {
       document.title = title;
     }

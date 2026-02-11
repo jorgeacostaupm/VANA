@@ -9,7 +9,9 @@ import Settings from "./Settings";
 const defaultConfig = {
   isSync: true,
   chartType: "stacked",
+  stackedMode: "total",
   showLegend: true,
+  showGrid: true,
   groupOrder: "alpha",
   categoryOrder: "alpha",
 };
@@ -31,7 +33,7 @@ export default function Categoric({ id, variable, remove }) {
 
   return (
     <ViewContainer
-      title={`Distribution - ${variable}`}
+      title={`Distribution · ${variable}`}
       svgIDs={[id, `${id}-legend`]}
       info={info}
       remove={remove}

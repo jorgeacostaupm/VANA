@@ -1,12 +1,12 @@
 import * as d3 from "d3";
 import { useEffect, useState } from "react";
 import { moveTooltip } from "@/utils/functions";
-import renderQTooltip from "@/components/charts/QuarantineTooltip";
 import renderLegend from "@/utils/renderLegend";
 import store from "@/store/store";
 import useResizeObserver from "@/hooks/useResizeObserver";
+import { CHART_HIGHLIGHT } from "@/utils/chartTheme";
 
-const margin = { top: 20, right: 10, bottom: 30, left: 50 };
+const margin = { top: 30, right: 20, bottom: 40, left: 60 };
 
 export default function usePCAPlot({ chartRef, legendRef, data, config }) {
   const dimensions = useResizeObserver(chartRef);
@@ -39,15 +39,6 @@ export default function usePCAPlot({ chartRef, legendRef, data, config }) {
     let tooltip = d3.select("body").select("div.tooltip");
     if (tooltip.empty()) {
       tooltip = d3.select("body").append("div").attr("class", "tooltip");
-    }
-
-    let contextMenuTooltip = d3.select("body").select("div.contextTooltip");
-    if (contextMenuTooltip.empty()) {
-      contextMenuTooltip = d3
-        .select("body")
-        .append("div")
-        .attr("class", "contextTooltip")
-        .style("display", "none");
     }
 
     const xExtent = d3.extent(data, (d) => d.pc1);
@@ -91,27 +82,19 @@ export default function usePCAPlot({ chartRef, legendRef, data, config }) {
       .attr("opacity", pointOpacity ?? 0.7)
       .on("mouseover", (e, d) => {
         const target = e.target;
-        d3.select(target).style("stroke", "black").raise();
+        d3.select(target).style("stroke", CHART_HIGHLIGHT).raise();
 
         let html = `<strong>${d[groupVar]}</strong> <br>`;
         html += `Var 1: ${d.pc1.toFixed(2)}<br> Var 2: ${d.pc2.toFixed(2)} `;
         html += d[idVar] ? `<br>${idVar}: ${d[idVar]}` : "";
         html += d[timeVar] ? `<br>${timeVar}: ${d[timeVar]}` : "";
 
-        contextMenuTooltip.style("display") === "none"
-          ? tooltip.style("opacity", 1).html(html)
-          : tooltip.style("opacity", 0).html(html);
+        tooltip.style("opacity", 1).html(html);
       })
       .on("mousemove", (e) => moveTooltip(e, tooltip, chart))
       .on("mouseout", (e) => {
         d3.select(e.target).style("stroke", null);
         tooltip.style("opacity", 0);
-      })
-      .on("contextmenu", (e, d) => {
-        e.preventDefault();
-        tooltip.style("opacity", 0);
-        renderQTooltip(contextMenuTooltip, d, idVar);
-        moveTooltip(e, contextMenuTooltip, chart, 100);
       });
 
     if (showLegend !== false) {

@@ -18,8 +18,9 @@ import panelStyles from "@/styles/SettingsPanel.module.css";
 const { publish } = pubsub;
 const { Text } = Typography;
 
-export default function Ranking({ test, remove, id }) {
+export default function Ranking({ test, remove, id, onVariableClick }) {
   const ref = useRef(null);
+  const skippedSignatureRef = useRef("");
   const dimensions = useResizeObserver(ref);
 
   const groupVar = useSelector((state) => state.cantab.present.groupVar);
@@ -45,6 +46,11 @@ export default function Ranking({ test, remove, id }) {
   }, []);
 
   useEffect(() => {
+    if (!ranking) return;
+    ranking.onVariableClick = onVariableClick;
+  }, [ranking, onVariableClick]);
+
+  useEffect(() => {
     if (ranking?.data && dimensions) {
       ranking.onResize(dimensions);
     }
@@ -65,6 +71,38 @@ export default function Ranking({ test, remove, id }) {
         hierarchy,
       });
       setData(result);
+
+      const skipped = result?.skippedVariables ?? [];
+      if (!skipped.length) {
+        skippedSignatureRef.current = "";
+        return;
+      }
+
+      const signature = skipped
+        .map(({ variable, reason }) => `${variable}:${reason}`)
+        .join("|");
+      if (signature === skippedSignatureRef.current) {
+        return;
+      }
+      skippedSignatureRef.current = signature;
+
+      const maxItems = 8;
+      const details = skipped
+        .slice(0, maxItems)
+        .map(({ variable, reason }) => `${variable}: ${reason}`)
+        .join("\n");
+      const extra =
+        skipped.length > maxItems
+          ? `\n...and ${skipped.length - maxItems} more.`
+          : "";
+
+      publish("notification", {
+        message: "Ranking generated with skipped variables",
+        description: `${skipped.length} variable(s) were excluded:\n${details}${extra}`,
+        placement: "bottomRight",
+        type: "warning",
+        source: "test",
+      });
     } catch (error) {
       console.error(error);
       publish("notification", {
@@ -72,6 +110,7 @@ export default function Ranking({ test, remove, id }) {
         description: error.message || String(error),
         placement: "bottomRight",
         type: "error",
+        source: "test",
       });
       setData(null);
     }
@@ -93,12 +132,43 @@ export default function Ranking({ test, remove, id }) {
     ranking.updateVis();
   }, [data, config, ranking]);
 
-  const info = `Test: ${test}\nRanking measure: ${data?.measure}`;
+  const skippedVariables = data?.skippedVariables ?? [];
+  const hasRankingData = Boolean(data?.data?.length);
+  const info = (
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      <div>Test: {test || "-"}</div>
+      <div>Ranking measure: {data?.measure || "-"}</div>
+      <div>
+        Variables included: {data?.includedVariables ?? data?.data?.length ?? 0}
+        /{data?.totalVariables ?? data?.data?.length ?? 0}
+      </div>
+
+      {skippedVariables.length > 0 && (
+        <>
+          <div>Skipped variables ({skippedVariables.length}):</div>
+          <ul
+            style={{
+              margin: 0,
+              paddingLeft: "1.2em",
+              maxHeight: "180px",
+              overflowY: "auto",
+            }}
+          >
+            {skippedVariables.map(({ variable, reason }, idx) => (
+              <li key={`${variable}-${idx}`}>
+                {variable}: {reason}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div className={styles.viewContainer}>
       <ChartBar
-        title={`Ranking - ${test}`}
+        title={`Ranking · ${test}`}
         info={info}
         svgIDs={data && [id]}
         remove={remove}
@@ -107,13 +177,13 @@ export default function Ranking({ test, remove, id }) {
         settings={<Options config={config} setConfig={setConfig} />}
       ></ChartBar>
 
-      {!data && <NoDataPlaceholder></NoDataPlaceholder>}
+      {!hasRankingData && <NoDataPlaceholder></NoDataPlaceholder>}
 
       <svg
         ref={ref}
         id={id}
         className={styles.chartSvg}
-        style={{ display: data ? "block" : "none" }}
+        style={{ display: hasRankingData ? "block" : "none" }}
       />
     </div>
   );
