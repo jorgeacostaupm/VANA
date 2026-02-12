@@ -4,7 +4,7 @@ import { useDispatch } from "react-redux";
 const useRootStyles = (
   setInit,
   title,
-  applyStyles = { padding: 0, maxWidth: "100vw" }
+  applyStyles = { padding: 0, maxWidth: "100vw" },
 ) => {
   const dispatch = useDispatch();
 
@@ -17,7 +17,7 @@ const useRootStyles = (
     const hash = window.location.hash || "";
     const route = hash.startsWith("#/") ? hash.slice(2).split("/")[0] : "";
     if (route) {
-      window.name = `vana-app-${route}`;
+      window.name = `vianna-app-${route}`;
     }
 
     if (title) {

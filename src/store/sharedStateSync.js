@@ -1,10 +1,10 @@
-const DB_NAME = "vana_shared_state";
+const DB_NAME = "vianna_shared_state";
 const DB_VERSION = 1;
 const DB_STORE_NAME = "snapshots";
 const SNAPSHOT_ID = "root";
 
-const CHANNEL_NAME = "vana_shared_state_channel";
-const STORAGE_SIGNAL_KEY = "__vana_shared_state_signal__";
+const CHANNEL_NAME = "vianna_shared_state_channel";
+const STORAGE_SIGNAL_KEY = "__vianna_shared_state_signal__";
 const PERSIST_DEBOUNCE_MS = 1500;
 
 const SHARED_SLICES = [

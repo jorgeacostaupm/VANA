@@ -11,11 +11,11 @@ const APP_ROUTE_MAP = {
 };
 
 const APP_WINDOW_TARGET_MAP = {
-  metadata: "vana-app-metadata",
-  compare: "vana-app-compare",
-  evolution: "vana-app-evolution",
-  correlation: "vana-app-correlation",
-  cantab: "vana-app-cantab",
+  metadata: "vianna-app-metadata",
+  compare: "vianna-app-compare",
+  evolution: "vianna-app-evolution",
+  correlation: "vianna-app-correlation",
+  cantab: "vianna-app-cantab",
 };
 
 const buildAppUrl = (route) => {
@@ -26,7 +26,7 @@ const buildAppUrl = (route) => {
 export default function LinkButton({ to, icon }) {
   const route = to || "";
   const appName = APP_ROUTE_MAP[route] || route;
-  const targetName = APP_WINDOW_TARGET_MAP[route] || `vana-app-${route}`;
+  const targetName = APP_WINDOW_TARGET_MAP[route] || `vianna-app-${route}`;
 
   const tooltipTitle = `Open or focus ${appName}`;
 
@@ -40,10 +40,6 @@ export default function LinkButton({ to, icon }) {
   };
 
   return (
-    <PanelButton
-      title={tooltipTitle}
-      onClick={handleOpenTab}
-      icon={icon}
-    />
+    <PanelButton title={tooltipTitle} onClick={handleOpenTab} icon={icon} />
   );
 }

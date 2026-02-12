@@ -33,8 +33,7 @@
 
 .appBarLogo {
   display: block;
-  height: 70px;
-  width: auto;
+  width: fit-content;
 }
 
 .panelBox {

@@ -1,7 +1,4 @@
-import { withBasePath } from "@/utils/publicPaths";
-import { ALL_FUNCTIONS } from "@/apps/hierarchy/menu/logic/formulaConstants";
-
-export const APP_NAME = "VANA";
+export const APP_NAME = "VIANNA";
 
 export const DEFAULT_ID_VARIABLE = "pseudon_id";
 export const DEFAULT_GROUP_VARIABLE = "site";
@@ -16,21 +13,17 @@ export const navioLabelHeight = 140;
 
 export const DATASETS = {
   prod: {
-    dataPath: withBasePath("vis/csv/testData.csv"),
-    hierarchyPath: withBasePath("vis/hierarchies/testDataHier.json"),
-    descriptionsPath: withBasePath(
-      "vis/descriptions/ai-mind variable descriptions.csv",
-    ),
+    dataPath: "./vis/csv/testData.csv",
+    hierarchyPath: "./vis/hierarchies/testDataHier.json",
+    descriptionsPath: "./vis/descriptions/ai-mind variable descriptions.csv",
     idVar: "id",
     groupVar: "Country",
     timeVar: "Visit Name",
   },
   dev: {
-    dataPath: withBasePath("vis/csv/private/ai-mind data Sept 2025.csv"),
-    hierarchyPath: withBasePath("vis/hierarchies/ai-mind hierarchy.json"),
-    descriptionsPath: withBasePath(
-      "vis/descriptions/ai-mind variable descriptions.csv",
-    ),
+    dataPath: "./vis/csv/private/ai-mind data Sept 2025.csv",
+    hierarchyPath: "./vis/hierarchies/ai-mind hierarchy.json",
+    descriptionsPath: "./vis/descriptions/ai-mind variable descriptions.csv",
     idVar: "pseudon_id",
     groupVar: "site",
     timeVar: "visit",
@@ -88,7 +81,7 @@ export function getNameByDtype(dtype) {
 // DESCRIPTIONS
 
 export const APP_DESC =
-  "VANA (Visual Analytics for Neuropsicological Assesments) is a modular visual analytics environment developed within the AI-Mind project to explore and analyze data from the Cambridge Neuropsychological Test Automated Battery (CANTAB). Designed in close collaboration with clinical researchers, our system adopts a coordinated multiple-view architecture that integrates components for cohort exploration, data wrangling, group comparison, temporal trajectory analysis, and correlation exploration. Importantly, it leverages the hierarchical structure of neuropsychological data to reduce and manage the inherent complexity of such datasets. Through this combination of views, the tool supports intuitive navigation, interactive filtering, and task-specific workflows. By bridging domain-specific needs with a flexible and extensible design, the system advances visual analytics for neuropsicological research and provides a reusable framework for other contexts involving complex tabular datasets.";
+  "VIANNA (Visual Analytics for Neuropsicological Assesments) is a modular visual analytics environment developed within the AI-Mind project to explore and analyze data from the Cambridge Neuropsychological Test Automated Battery (CANTAB). Designed in close collaboration with clinical researchers, our system adopts a coordinated multiple-view architecture that integrates components for cohort exploration, data wrangling, group comparison, temporal trajectory analysis, and correlation exploration. Importantly, it leverages the hierarchical structure of neuropsychological data to reduce and manage the inherent complexity of such datasets. Through this combination of views, the tool supports intuitive navigation, interactive filtering, and task-specific workflows. By bridging domain-specific needs with a flexible and extensible design, the system advances visual analytics for neuropsicological research and provides a reusable framework for other contexts involving complex tabular datasets.";
 
 export const HIER_DESC =
   "The Hierarchy Editor enables the organization and structuring of variables into logical groups or derived aggregates. It provides an interactive tree-based interface where variables can be rearranged, nested, or combined to create new higher-level attributes. Each node in the hierarchy can represent an individual variable, a composite indicator, or an aggregation of related measures.\nThis component supports the creation of derived variables using mathematical or logical expressions, allowing the definition of new analytical dimensions tailored to specific research objectives.\nBy simplifying complex datasets into structured hierarchies, the Hierarchy Editor facilitates a clearer overview of cognitive domains and their interrelations, improving both exploration and interpretability.";
@@ -133,4 +126,6 @@ EXAMPLES:
   • Conditional: $(Age) > 30 && $(Status) == "Active"
   `;
 }
+
+import { ALL_FUNCTIONS } from "@/apps/hierarchy/menu/logic/formulaConstants";
 export const CUST_HELP = generateHelpText(ALL_FUNCTIONS);
