@@ -1,6 +1,6 @@
 # VIANNA
 
-Visual Analytics for Neuropsychological Assessments (CANTAB)
+Visual Analytics for Neuropsychological Assessments
 
 ## Overview
 
